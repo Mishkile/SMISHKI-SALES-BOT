@@ -1,92 +1,154 @@
-# GoSaleBot
+# 🛍️ GoSaleBot
 
-[![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](LICENSE)
-[![Version](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/SM-26/8c14f658878fc5f1ecf8eee4d07f3cb4/raw/version_GoSalesBot.json)](VERSION.md)
+A Telegram sales bot that lets users create sale listings through a guided conversational flow. Posts go through admin moderation before being published to a public sales group.
 
-
----
-<p align="center">
-  <img src="./docs/GoSaleBot_Banner.png" alt="GoSaleBot Banner">
-</p>
-A modular, production-ready Telegram bot for handling sale posts with moderation, photo support, i18n, admin commands, and full Docker deployment.
+Built with **TypeScript**, **node-telegram-bot-api**, and **MongoDB**.
 
 ---
 
-## Features
+## ✨ Features
 
-- Guided sale post creation (title, description, price, location, photos)
-- Moderation workflow (approve via ✅, reject via reply)
-- Multi-language support (English, Czech, Hebrew)
-- Admin commands for runtime config and pending review
-- SQLite persistent storage
-- Easy deployment with Docker & Docker Compose
-- Inline keyboard for photo stage
-- Configurable via environment and runtime admin commands
-- Handles users without a username by using their first and last name.
+- **Guided Post Creation** — Step-by-step flow: title → description → price → location → photos
+- **Price Validation** — Optional numeric price validation (configurable)
+- **Photo Upload** — Multi-photo support with download & local storage
+- **Live Preview** — Users see a formatted preview before submitting
+- **Admin Moderation** — Posts sent to a moderation group with approve/reject buttons
+- **Rejection Reasons** — Admins can provide an optional reason when rejecting
+- **Auto-Publish** — Approved posts are forwarded to a public sales group
+- **Forum Topics** — Moderation and approved posts target specific group topics
+- **Hebrew Localization** — All UI strings externalized in `locals.json`
+- **User Mentions** — Deep-links (`tg://user`) for users without a username
 
-## Quick Start
+---
 
-```sh
-# Clone the repository
-git clone https://github.com/<your-username>/GoSaleBot.git
-cd GoSaleBot
+## 📁 Project Structure
 
-# Add your Telegram token and group IDs to the .env file
-cp .env.example .env
-# Edit .env with your values
-
-# Build and run the bot
-docker compose up --build
+```
+src/
+├── bot.ts                    # Entry point — connects DB, starts polling
+├── config/
+│   └── db.ts                 # MongoDB connection
+├── controllers/
+│   └── botController.ts      # Route registration & flow orchestration
+├── models/
+│   ├── Post.ts               # Post schema (title, price, photos, status…)
+│   └── User.ts               # User schema (userId, name, isAdmin…)
+├── repositories/
+│   ├── postRepository.ts     # Post CRUD
+│   └── userRepository.ts     # User CRUD (upsert)
+├── services/
+│   ├── inputService.ts       # Reusable input collection (text, price, photos, confirm)
+│   ├── photoService.ts       # Photo download & media group builder
+│   ├── postService.ts        # Post formatting, preview, publish to groups
+│   ├── moderationService.ts  # Approve/reject logic & rejection reasons
+│   └── userService.ts        # User registration
+└── types/
+    └── index.ts              # TypeScript interfaces (BotConfig, LocaleStrings…)
 ```
 
-## Commands
+---
 
-### User Commands
+## ⚡ Quick Start
 
-| Command | Description |
-| --- | --- |
-| `/start` | Begin creating a sale post |
-| `/help` | Shows the help message with all the available commands. |
-| `/myposts` | List your posts and allow deleting or marking as sold |
+### Prerequisites
 
-For a full list of commands, including admin commands, see the [detailed documentation](docs/README.md).
+- **Node.js** 18+
+- **MongoDB** running locally (or a remote URI)
+- A **Telegram Bot Token** from [@BotFather](https://t.me/BotFather)
 
-## Documentation
+### 1. Clone & Install
 
-- For full technical details, see [docs/README.md](docs/README.md)
-- For design and architecture, see [docs/DesignStructure.adoc](docs/DesignStructure.adoc)
+```bash
+git clone https://github.com/Mishkile/SMISHKI-SALES-BOT.git
+cd SMISHKI-SALES-BOT
+npm install
+```
 
+### 2. Configure Environment
 
-## Credits
+Copy the example env file and fill in your values:
 
-This project uses the excellent [go-telegram/bot](https://github.com/go-telegram/bot) library for Telegram Bot API integration.
+```bash
+cp .env.example .env
+```
 
-## License
+```env
+BOT_TOKEN=your_telegram_bot_token
+MONGO_URI=mongodb://localhost:27017/SalesBotDB
+```
 
-This project is licensed under the Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0) License. See the [LICENSE](LICENSE) file for details.
+### 3. Configure Bot Settings
+
+Edit `config.json`:
+
+```json
+{
+  "lang": "he",
+  "moderationGroupId": -100XXXXXXXXXX,
+  "approvedGroupId": -100XXXXXXXXXX,
+  "moderationTopicId": 15,
+  "approvedTopicId": 73,
+  "timeOut": 1440,
+  "validatePrice": true,
+  "minimumPhotos": 0
+}
+```
+
+| Field               | Description                                       |
+|---------------------|---------------------------------------------------|
+| `lang`              | Locale key (matches `locals.json`)                |
+| `moderationGroupId` | Telegram group where posts are reviewed           |
+| `approvedGroupId`   | Telegram group where approved posts are published |
+| `moderationTopicId` | Forum topic ID for moderation messages            |
+| `approvedTopicId`   | Forum topic ID for published posts                |
+| `timeOut`           | Post expiration timeout in minutes                |
+| `validatePrice`     | Require numeric price input                       |
+| `minimumPhotos`     | Minimum photos required per post (0 = optional)   |
+
+### 4. Run
+
+```bash
+# Development (with ts-node)
+npm run dev
+
+# Production
+npm run build
+npm start
+```
 
 ---
 
-## Environment Variables
+## 🔄 How It Works
 
-The following environment variables are required or supported. These can be set in your `.env` file or managed at runtime with the `/config` admin command:
+```
+User sends /start
+    ↓
+Bot collects: title → description → price → location → photos
+    ↓
+Preview shown to user → Confirm / Cancel
+    ↓
+Post saved to MongoDB (status: pending)
+    ↓
+Sent to moderation group with ✅ Approve / ❌ Reject buttons
+    ↓
+┌─ Approved → Published to sales group + user notified
+└─ Rejected → Optional reason prompt → user notified
+```
 
-| Variable | Description | Required |
-| --- | --- | --- |
-| `TELEGRAM_TOKEN` | Your Telegram bot token | **Yes** |
-| `MODERATION_GROUP_ID` | Chat ID for the moderation group | **Yes** |
-| `APPROVED_GROUP_ID` | Chat ID for the approved posts group | **Yes** |
-| `ADMINS` | Comma-separated list of Telegram user IDs with admin rights | **Yes** |
-| `MODERATION_TOPIC_ID` | (optional) Topic/thread ID for moderation group | No |
-| `APPROVED_TOPIC_ID` | (optional) Topic/thread ID for approved group | No |
-| `LANG` | Bot language (`en`, `cz`, `he`) | No |
-| `TIMEOUT_MINUTES` | Timeout in minutes before the bot expires pending posts (default: 1440) | No |
-| `VALIDATE_PRICE` | Enable/disable server-side price validation (true/false). Default: true | No |
-| `MIN_PHOTOS` | Minimum number of photos required to submit a post. Default: 1 | No |
+---
 
-## Next suggested tasks
+## 🛠️ Tech Stack
 
-- Add `/myposts` pagination or inline-button UI for better UX (currently supports text commands only).
-- Implement a way to mark approved-group posts as "sold" (update or delete the message in the approved group).
-- Add admin `/broadcast` command (consider rate-limiting / job queue for many users).
-- Run `golangci-lint` and address any issues found.
+| Layer        | Technology                  |
+|--------------|-----------------------------|
+| Runtime      | Node.js + TypeScript        |
+| Telegram API | node-telegram-bot-api       |
+| Database     | MongoDB + Mongoose          |
+| Config       | JSON (config.json)          |
+| i18n         | JSON (locals.json)          |
+
+---
+
+## 📜 License
+
+See [LICENSE.txt](../LICENSE.txt) for details.

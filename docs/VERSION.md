@@ -10,7 +10,7 @@ This project follows [Semantic Versioning 2.0.0](https://semver.org/):
 
 ## Current Version
 
-0.3.3
+0.0.1
 
 ## Changelog
 

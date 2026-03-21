@@ -1,0 +1,128 @@
+import TelegramBot from "node-telegram-bot-api";
+import { BotConfig, Locals } from "../types";
+
+export class InputService {
+    constructor(
+        private bot: TelegramBot,
+        private config: BotConfig,
+        private locals: Locals
+    ) {}
+
+    private get lang() {
+        return this.config.lang;
+    }
+
+    input(msg: TelegramBot.Message): Promise<string> {
+        return new Promise((resolve) => {
+            const listener = (reply: TelegramBot.Message) => {
+                if (reply.chat.id !== msg.chat.id || reply.from!.id !== msg.from!.id) return;
+                if (reply.text && reply.text.startsWith("/")) return;
+
+                this.bot.removeListener("message", listener);
+                resolve(reply.text || "");
+            };
+
+            this.bot.on("message", listener);
+        });
+    }
+
+    async inputWithPrompt(msg: TelegramBot.Message, prompt: string): Promise<string> {
+        await this.bot.sendMessage(msg.chat.id, prompt);
+        return this.input(msg);
+    }
+
+    async inputPrice(msg: TelegramBot.Message): Promise<number> {
+        await this.bot.sendMessage(msg.chat.id, this.locals[this.lang].enterPrice);
+
+        while (true) {
+            const priceInput = await this.input(msg);
+            const price = Number(priceInput);
+            if (!this.config.validatePrice || (!isNaN(price) && price > 0)) return price;
+            this.bot.sendMessage(msg.chat.id, this.locals[this.lang].invalidPrice);
+        }
+    }
+
+    inputPhotos(msg: TelegramBot.Message, onPhoto: (fileId: string) => Promise<string | null>): Promise<string[]> {
+        const photoPaths: string[] = [];
+        const doneCallbackData = `done_photos_${msg.from!.id}`;
+
+        return new Promise((resolve) => {
+            const cbListener = (query: TelegramBot.CallbackQuery) => {
+                if (!query.data || !query.data.startsWith("done_photos_")) return;
+                if (query.from.id !== msg.from!.id) return;
+
+                this.bot.removeListener("message", msgListener);
+                this.bot.removeListener("callback_query", cbListener);
+                this.bot.answerCallbackQuery(query.id);
+
+                if (query.message) {
+                    this.bot.editMessageReplyMarkup(
+                        { inline_keyboard: [] },
+                        { chat_id: query.message.chat.id, message_id: query.message.message_id }
+                    );
+                }
+
+                resolve(photoPaths);
+            };
+
+            const msgListener = async (reply: TelegramBot.Message) => {
+                if (reply.chat.id !== msg.chat.id || reply.from!.id !== msg.from!.id) return;
+
+                if (reply.photo && reply.photo.length > 0) {
+                    const fileId = reply.photo[reply.photo.length - 1].file_id;
+                    const savedPath = await onPhoto(fileId);
+                    if (savedPath) photoPaths.push(savedPath);
+                }
+            };
+
+            this.bot.on("callback_query", cbListener);
+            this.bot.on("message", msgListener);
+        });
+    }
+
+    async promptPhotos(msg: TelegramBot.Message, onPhoto: (fileId: string) => Promise<string | null>): Promise<string[]> {
+        const photosPromise = this.inputPhotos(msg, onPhoto);
+
+        await this.bot.sendMessage(msg.chat.id, this.locals[this.lang].enterPhotos, {
+            reply_markup: {
+                inline_keyboard: [[
+                    { text: this.locals[this.lang].donePhotosButton, callback_data: `done_photos_${msg.from!.id}` },
+                ]],
+            },
+        });
+
+        return photosPromise;
+    }
+
+    confirmAction(msg: TelegramBot.Message): Promise<boolean> {
+        return new Promise(async (resolve) => {
+            const callbackId = `confirm_${msg.from!.id}_${Date.now()}`;
+            const cancelId = `cancel_${msg.from!.id}_${Date.now()}`;
+
+            const sentMsg = await this.bot.sendMessage(msg.chat.id, "👆", {
+                reply_markup: {
+                    inline_keyboard: [[
+                        { text: this.locals[this.lang].confirmButton, callback_data: callbackId },
+                        { text: this.locals[this.lang].cancelButton, callback_data: cancelId },
+                    ]],
+                },
+            });
+
+            const listener = (query: TelegramBot.CallbackQuery) => {
+                if (query.from.id !== msg.from!.id) return;
+                if (query.data !== callbackId && query.data !== cancelId) return;
+
+                this.bot.removeListener("callback_query", listener);
+                this.bot.answerCallbackQuery(query.id);
+                this.bot.editMessageReplyMarkup(
+                    { inline_keyboard: [] },
+                    { chat_id: msg.chat.id, message_id: sentMsg.message_id }
+                );
+
+                resolve(query.data === callbackId);
+            };
+
+            this.bot.on("callback_query", listener);
+        });
+    }
+}

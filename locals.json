@@ -1,0 +1,28 @@
+{
+    "he": {
+        "welcome": "ברוך הבא! בוא ניצור פוסט מכירה. אנא הכנס כותרת:",
+        "enterDescription": "אנא הכנס תיאור:",
+        "enterPrice": "אנא הכנס מחיר:",
+        "enterPhotos": "אנא שלח תמונות. לחץ על הכפתור כשסיימת.",
+        "donePhotosButton": "✅ סיימתי",
+        "enterLocation": "אנא הכנס מיקום:",
+        "postCreated": "הפוסט שלך נוצר בהצלחה! הוא יישלח למודרציה לבדיקה לפני פרסום.",
+        "postApproved": "הפוסט שלך אושר ופורסם בהצלחה!",
+        "postRejected": "הפוסט שלך נדחה על ידי המודרציה. אנא נסה שוב עם פרטים שונים.",
+        "invalidPrice": "מחיר לא חוקי. אנא הכנס מספר תקין.",
+        "notEnoughPhotos": "לא נשלחו מספיק תמונות. אנא שלח לפחות תמונה אחת.",
+        "generalError": "אירעה שגיאה. אנא נסה שוב מאוחר יותר.",
+        "preview": "תצוגה מקדימה של הפוסט:",
+        "confirmButton": "✅ אישור ושליחה",
+        "cancelButton": "❌ ביטול",
+        "postCancelled": "הפוסט בוטל.",
+        "approveButton": "✅ אישור",
+        "rejectButton": "❌ דחייה",
+        "moderationPrompt": "👆 אשר או דחה:",
+        "statusApproved": "✅ אושר",
+        "statusRejected": "❌ נדחה",
+        "rejectReasonPrompt": "הכנס סיבת דחייה (או לחץ דלג):",
+        "skipReasonButton": "⏩ דלג",
+        "postRejectedWithReason": "הפוסט שלך נדחה.\nסיבה: "
+    }
+}

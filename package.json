@@ -1,0 +1,37 @@
+{
+  "name": "sales-bot",
+  "version": "1.0.0",
+  "main": "dist/bot.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/bot.js",
+    "dev": "ts-node src/bot.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mishkile/SMISHKI-SALES-BOT.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Mishkile/SMISHKI-SALES-BOT/issues"
+  },
+  "homepage": "https://github.com/Mishkile/SMISHKI-SALES-BOT#readme",
+  "description": "",
+  "dependencies": {
+    "dotenv": "^17.3.1",
+    "mongoose": "^9.3.1",
+    "node-telegram-bot-api": "^0.67.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "@types/node-telegram-bot-api": "^0.64.14",
+    "nodemon": "^3.1.14",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}

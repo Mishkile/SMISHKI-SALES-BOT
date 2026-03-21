@@ -1,0 +1,10 @@
+{
+    "lang": "he",
+    "moderationGroupId": -1231323,
+    "approvedGroupId": -1213341,
+    "moderationTopicId": 10,
+    "approvedTopicId": 11,
+    "timeOut": 1440,
+    "validatePrice": true,
+    "minimumPhotos": 0
+}
