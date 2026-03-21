@@ -1,6 +1,6 @@
-# 🛍️ NodeSaleBot
+# 🛍️ JSTS Sale Bot
 
-A Telegram sales bot that lets users create sale listings through a guided conversational flow. Posts go through admin moderation before being published to a public sales group.
+(pronounced as "Just Sale Bot") is a Telegram sales bot that lets users create sale listings through a guided conversational flow. Posts go through admin moderation before being published to a public sales group.
 
 Built with **TypeScript**, **node-telegram-bot-api**, and **MongoDB**.
 
@@ -16,7 +16,7 @@ Built with **TypeScript**, **node-telegram-bot-api**, and **MongoDB**.
 - **Rejection Reasons** — Admins can provide an optional reason when rejecting
 - **Auto-Publish** — Approved posts are forwarded to a public sales group
 - **Forum Topics** — Moderation and approved posts target specific group topics
-- **Hebrew Localization** — All UI strings externalized in `locals.json`
+- **Multi Localization** — All UI strings externalized in `locals.json`
 - **User Mentions** — Deep-links (`tg://user`) for users without a username
 
 ---
@@ -142,13 +142,13 @@ Sent to moderation group with ✅ Approve / ❌ Reject buttons
 | Layer        | Technology                  |
 |--------------|-----------------------------|
 | Runtime      | Node.js + TypeScript        |
-| Telegram API | node-telegram-bot-api       |
+| Telegram API | [node-telegram-bot-api](https://github.com/yagop/node-telegram-bot-api)       |
 | Database     | MongoDB + Mongoose          |
-| Config       | JSON (config.json)          |
-| i18n         | JSON (locals.json)          |
+| Config       | JSON ([config.json](../config.json))          |
+| i18n         | JSON ([locals.json](../locals.json))          |
 
 ---
 
 ## 📜 License
 
-See [LICENSE.txt](../LICENSE.txt) for details.
+See [LICENSE.txt](../docs/LICENSE.txt) for details.
