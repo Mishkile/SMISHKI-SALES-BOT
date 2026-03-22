@@ -1,37 +1,39 @@
 {
   "name": "sales-bot",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "main": "dist/bot.js",
-  "directories": {
-    "doc": "docs"
-  },
+  "description": "JSTS-SaleBot implementation",
   "scripts": {
     "build": "tsc",
     "start": "node dist/bot.js",
-    "dev": "ts-node src/bot.ts"
+    "dev": "ts-node src/bot.ts",
+    "lint": "eslint .",
+    "test": "echo \"No tests specified\" && exit 0"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Mishkile/SMISHKI-SALES-BOT.git"
+    "url": "git+https://github.com/SM-26/JSTS-SaleBot.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "bugs": {
-    "url": "https://github.com/Mishkile/SMISHKI-SALES-BOT/issues"
+    "url": "https://github.com/SM-26/JSTS-SaleBot/issues"
   },
-  "homepage": "https://github.com/Mishkile/SMISHKI-SALES-BOT#readme",
-  "description": "",
+  "homepage": "https://github.com/SM-26/JSTS-SaleBot/blob/master/docs/README.md",
+  "author": "SM26",
+  "license": "ISC",
   "dependencies": {
     "dotenv": "^17.3.1",
     "mongoose": "^9.3.1",
     "node-telegram-bot-api": "^0.67.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.21.0",
     "@types/node": "^25.5.0",
     "@types/node-telegram-bot-api": "^0.64.14",
+    "eslint": "^9.39.4",
+    "globals": "^15.15.0",
     "nodemon": "^3.1.14",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.24.1"
   }
 }
