@@ -58,7 +58,7 @@ The easiest way to get the bot, database, and database management UI running is 
 #### Configure Environment:
 Ensure your .env is set up. For Docker, use:
 ``` env
-MONGO_URI=mongodb://mongodb:27017/SalesBotDB
+MONGO_URI=mongodb://mongoserver:27017/SalesBotDB
 ```
 
 #### Launch Services:

@@ -13,10 +13,10 @@ services:
     environment:
       - NODE_ENV=${NODE_ENV:-development}
     depends_on:
-      mongodb:
+      mongoserver:
         condition: service_healthy
 
-  mongodb:
+  mongoserver:
     image: mongo:latest
     restart: always
     command: [ "mongod", "--quiet" ]
@@ -37,12 +37,12 @@ services:
     ports:
       - "8081:8081"
     environment:
-      - ME_CONFIG_MONGODB_SERVER=mongodb
+      - ME_CONFIG_MONGODB_SERVER=mongoserver
       - ME_CONFIG_MONGODB_PORT=27017
       - ME_CONFIG_MONGODB_ENABLE_ADMIN=true
-      - ME_CONFIG_MONGODB_URL=mongodb://mongodb:27017
+      - ME_CONFIG_MONGODB_URL=mongodb://mongoserver:27017
     depends_on:
-      mongodb:
+      mongoserver:
         condition: service_healthy
 
 volumes:
