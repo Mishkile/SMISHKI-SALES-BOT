@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
-// Use the service name 'mongoserver' from your docker-compose.yaml
-const MONGO_URI = process.env.MONGO_URI || "mongodb://mongoserver:27017/SalesBotDB";
+// Default to localhost for safety, Docker should always provide env variable
+const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/SalesBotDB";
 
 export async function connectDB(): Promise<void> {
     try {

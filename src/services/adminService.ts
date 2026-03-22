@@ -11,7 +11,7 @@ export class AdminService {
         private bot: TelegramBot,
         private config: BotConfig,
         private locals: Locals
-    ) {}
+    ) { }
 
     private get lang() {
         return this.config.lang;
@@ -47,7 +47,7 @@ export class AdminService {
         const lines = Object.entries(this.config).map(
             ([key, value]) => `<b>${key}</b>: <code>${value}</code>`
         );
-        const text = `<b>Config</b>\n\n${lines.join("\n")}`;
+        const text = `${this.locals[this.lang].configTitle}\n\n${lines.join("\n")}`;
         await this.bot.sendMessage(chatId, text, { parse_mode: "HTML" });
     }
 

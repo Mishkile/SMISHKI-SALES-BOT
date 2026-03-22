@@ -7,8 +7,9 @@
     "build": "tsc",
     "start": "node dist/bot.js",
     "dev": "ts-node src/bot.ts",
+    "check-locals": "ts-node src/tests/checkLocals.ts",
     "lint": "eslint .",
-    "test": "echo \"No tests specified\" && exit 0"
+    "test": "npm run check-locals && echo \"Tests passed\""
   },
   "repository": {
     "type": "git",

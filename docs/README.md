@@ -16,6 +16,7 @@ This is Built with **TypeScript**, **node-telegram-bot-api**, and **MongoDB** an
 - **Live Preview** — Users see a formatted preview before submitting
 - **Admin Moderation** — Posts sent to a moderation group with approve/reject buttons
 - **Rejection Reasons** — Admins can provide an optional reason when rejecting
+- **Post Bumping** — Users can bump their approved posts to the top (subject to daily limits)
 - **Auto-Publish** — Approved posts are forwarded to a public sales group
 - **Forum Topics** — Moderation and approved posts target specific group topics
 - **Multi Localization** — All UI strings externalized in `locals.json`
@@ -42,8 +43,13 @@ src/
 │   ├── inputService.ts       # Reusable input collection (text, price, photos, confirm)
 │   ├── photoService.ts       # Photo download & media group builder
 │   ├── postService.ts        # Post formatting, preview, publish to groups
+│   ├── myPostsService.ts     # User post management (list, bump, mark sold)
 │   ├── moderationService.ts  # Approve/reject logic & rejection reasons
+│   ├── adminService.ts       # Admin configuration commands
 │   └── userService.ts        # User registration
+├── tests/
+│   ├── checkLocals.ts        # Localization integrity script
+│   └── testCases.ts          # Manual test scenarios
 └── types/
     └── index.ts              # TypeScript interfaces (BotConfig, LocaleStrings…)
 ```
@@ -82,7 +88,7 @@ Database UI: Access Mongo Express at `http://localhost:8081` to manage your coll
 ### 1. Clone & Install
 
 ```bash
-git clone https://https://github.com/SM-26/JSTS-SaleBot.git
+git clone https://github.com/SM-26/JSTS-SaleBot.git
 cd JSTS-SaleBot
 npm install
 ```
@@ -121,11 +127,12 @@ Edit `config.json`:
 | `lang`              | Locale key (matches `locals.json`)                |
 | `moderationGroupId` | Telegram group where posts are reviewed           |
 | `approvedGroupId`   | Telegram group where approved posts are published |
-| `moderationTopicId` | Forum topic ID for moderation messages            |
-| `approvedTopicId`   | Forum topic ID for published posts                |
+| `moderationTopicId` | Forum topic ID for moderation messages (Optional: remove if not using topics) |
+| `approvedTopicId`   | Forum topic ID for published posts (Optional: remove if not using topics) |
 | ~~`timeOut`~~           | ~~Post expiration timeout in minutes~~                |
 | `validatePrice`     | Require numeric price input                       |
 | `minimumPhotos`     | Minimum photos required per post (0 = optional)   |
+| `dailyBumpLimit`    | Maximum times a user can bump a post per day      |
 
 ### 4. Run
 

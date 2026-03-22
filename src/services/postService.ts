@@ -19,7 +19,7 @@ export class PostService {
         private config: BotConfig,
         private locals: Locals,
         private mediaService: MediaService
-    ) {}
+    ) { }
 
     private get lang() {
         return this.config.lang;

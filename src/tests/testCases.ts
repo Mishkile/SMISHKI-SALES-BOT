@@ -19,8 +19,8 @@ const TEST_MEDIA: MediaItem[] = [
 
 export const TEST_CASES: Record<string, { label: string; run: TestCaseFn }> = {
     full_post: { label: "📦 Full post (3 photos)", run: testCase1_FullPost },
-    no_media:  { label: "📝 No media",             run: testCase2_NoMedia },
-    one_photo: { label: "🖼 One photo",             run: testCase3_OnePhoto },
+    no_media: { label: "📝 No media", run: testCase2_NoMedia },
+    one_photo: { label: "🖼 One photo", run: testCase3_OnePhoto },
 };
 
 type TestCaseFn = (
@@ -43,9 +43,12 @@ async function testCase1_FullPost(
     userService: UserService,
     msg: TelegramBot.Message
 ): Promise<void> {
-    await userService.ensureUser(msg.from!);
+    if (!msg.from) throw new Error("Test requires a valid user in message context");
+    const user = msg.from;
 
-    const title = "🧪 טסט - אייפון 15 פרו";
+    await userService.ensureUser(user);
+
+    const title = "טסט - אייפון 15 פרו";
     const description = "מכשיר במצב מעולה, שנה שימוש, עם כיסוי וזכוכית.";
     const price = 3500;
     const location = "תל אביב";
@@ -53,13 +56,13 @@ async function testCase1_FullPost(
 
     const postText = postService.formatPostText({
         title, description, price, location, media,
-        userId: msg.from!.id,
-        username: msg.from!.username,
-        firstName: msg.from!.first_name,
+        userId: user.id,
+        username: user.username,
+        firstName: user.first_name,
     });
 
     const post = await postRepository.createPost({
-        userId: String(msg.from!.id),
+        userId: user.id.toString(),
         title, description, price, media, location,
         createdAt: new Date(),
     });
@@ -79,9 +82,12 @@ async function testCase2_NoMedia(
     userService: UserService,
     msg: TelegramBot.Message
 ): Promise<void> {
-    await userService.ensureUser(msg.from!);
+    if (!msg.from) throw new Error("Test requires a valid user in message context");
+    const user = msg.from;
 
-    const title = "🧪 טסט - שולחן כתיבה";
+    await userService.ensureUser(user);
+
+    const title = "טסט - שולחן כתיבה";
     const description = "שולחן עץ, 120x60, במצב טוב.";
     const price = 200;
     const location = "חיפה";
@@ -89,13 +95,13 @@ async function testCase2_NoMedia(
 
     const postText = postService.formatPostText({
         title, description, price, location, media,
-        userId: msg.from!.id,
-        username: msg.from!.username,
-        firstName: msg.from!.first_name,
+        userId: user.id,
+        username: user.username,
+        firstName: user.first_name,
     });
 
     const post = await postRepository.createPost({
-        userId: String(msg.from!.id),
+        userId: user.id.toString(),
         title, description, price, media, location,
         createdAt: new Date(),
     });
@@ -115,9 +121,12 @@ async function testCase3_OnePhoto(
     userService: UserService,
     msg: TelegramBot.Message
 ): Promise<void> {
-    await userService.ensureUser(msg.from!);
+    if (!msg.from) throw new Error("Test requires a valid user in message context");
+    const user = msg.from;
 
-    const title = "🧪 טסט - אוזניות אלחוטיות";
+    await userService.ensureUser(user);
+
+    const title = "טסט - אוזניות אלחוטיות";
     const description = "Sony WH-1000XM5, כמו חדש עם קופסה.";
     const price = 900;
     const location = "ירושלים";
@@ -125,13 +134,13 @@ async function testCase3_OnePhoto(
 
     const postText = postService.formatPostText({
         title, description, price, location, media,
-        userId: msg.from!.id,
-        username: msg.from!.username,
-        firstName: msg.from!.first_name,
+        userId: user.id,
+        username: user.username,
+        firstName: user.first_name,
     });
 
     const post = await postRepository.createPost({
-        userId: String(msg.from!.id),
+        userId: user.id.toString(),
         title, description, price, media, location,
         createdAt: new Date(),
     });

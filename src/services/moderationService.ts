@@ -10,7 +10,7 @@ export class ModerationService {
         private config: BotConfig,
         private locals: Locals,
         private postService: PostService
-    ) {}
+    ) { }
 
     private get lang() {
         return this.config.lang;
@@ -34,18 +34,18 @@ export class ModerationService {
 
             const post = await postRepository.findById(postId);
             if (!post) {
-                this.bot.answerCallbackQuery(query.id, { text: "Post not found" });
+                this.bot.answerCallbackQuery(query.id, { text: this.locals[this.lang].adminPostNotFound });
                 return;
             }
 
             if (post.status !== "pending") {
-                this.bot.answerCallbackQuery(query.id, { text: "Post already handled" });
+                this.bot.answerCallbackQuery(query.id, { text: this.locals[this.lang].adminPostHandled });
                 return;
             }
 
             const user = await userRepository.findByUserId(post.userId);
             if (!user) {
-                this.bot.answerCallbackQuery(query.id, { text: "User not found" });
+                this.bot.answerCallbackQuery(query.id, { text: this.locals[this.lang].adminUserNotFound });
                 return;
             }
 
@@ -67,7 +67,7 @@ export class ModerationService {
             }
         } catch (err) {
             console.error("[ERROR - handleModerationCallback]", (err as Error).message);
-            this.bot.answerCallbackQuery(query.id, { text: "Error processing" });
+            this.bot.answerCallbackQuery(query.id, { text: this.locals[this.lang].adminError });
         }
     }
 
@@ -91,12 +91,12 @@ export class ModerationService {
         }
 
         this.bot.sendMessage(Number(post.userId), this.locals[this.lang].postApproved);
-        this.bot.answerCallbackQuery(query.id, { text: "✅ Approved" });
+        this.bot.answerCallbackQuery(query.id, { text: this.locals[this.lang].adminApproved });
     }
 
     private async handleRejection(query: TelegramBot.CallbackQuery, postId: string, post: any): Promise<void> {
         await postRepository.updateStatus(postId, "rejected");
-        this.bot.answerCallbackQuery(query.id, { text: "❌ Rejected" });
+        this.bot.answerCallbackQuery(query.id, { text: this.locals[this.lang].adminRejected });
 
         const reason = await this.askRejectReason(query);
 
