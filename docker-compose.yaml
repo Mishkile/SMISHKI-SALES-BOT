@@ -4,6 +4,7 @@ services:
       context: .
       dockerfile: dockerfile
       target: development
+    container_name: jsts-salebot # Easier to find in 'docker ps'
     volumes:
       - .:/app
       - /app/node_modules
@@ -28,7 +29,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 20s
+      start_period: 15s
 
   mongo-express:
     image: mongo-express:latest
@@ -38,7 +39,7 @@ services:
     environment:
       - ME_CONFIG_MONGODB_SERVER=mongodb
       - ME_CONFIG_MONGODB_PORT=27017
-      - ME_CONFIG_MONGODB_ENABLE_ADMIN=false
+      - ME_CONFIG_MONGODB_ENABLE_ADMIN=true
       - ME_CONFIG_MONGODB_URL=mongodb://mongodb:27017
     depends_on:
       mongodb:
