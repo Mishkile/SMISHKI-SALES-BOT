@@ -1,5 +1,5 @@
 name: "🚀 Feature Request"
-description: "I have a specific suggestion for GoSaleBot!"
+description: "I have a specific suggestion for JSTS-SaleBot!"
 labels: ["needs triage", "enhancement"]
 body:
   - type: markdown

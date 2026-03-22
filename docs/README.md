@@ -4,7 +4,7 @@
   
 (pronounced as "Just Sale Bot") is a Telegram sales bot that lets users create sale listings through a guided conversational flow. Posts go through admin moderation before being published to a public sales group.
 
-Built with **TypeScript**, **node-telegram-bot-api**, and **MongoDB**.
+This is Built with **TypeScript**, **node-telegram-bot-api**, and **MongoDB** and is a JS version of [GoSaleBot](https://github.com/SM-26/GoSaleBot/)
 
 ---
 
@@ -72,6 +72,7 @@ Bot Logs: `docker compose logs -f bot`
 
 Database UI: Access Mongo Express at `http://localhost:8081` to manage your collections. username is `admin` and password is `pass`
 
+## Dev build  
 ### Prerequisites
 
 - **Node.js** 18+
@@ -177,14 +178,12 @@ See [LICENSE.txt](../docs/LICENSE.txt) for details.
 ## Todo list
 - [ ] make a logo for this project
 - [ ] better readme.md
-- [ ] wrap this project in docker
+- [x] wrap this project in docker
 - [ ] double check translations and all of the strings
-- [ ] make sure that the /test is working from docker
+- [x] make sure that the /test is working from docker
 - [ ] make sure we implement an expiration mechanism somehow
-- [ ] setup .github folder with everything like the old project.
+- [x] setup .github folder with everything like the old project.
 - [ ] add an admin only command: /pending that will list to the admin all of the pending post. after /pending the admin should have someway to approve/reject each post.either by inline buttons or by link to the mod group.
 - [ ] add an admin only command: /clearpending to mark all of the pending post as expired. they can not be published anymore.
 - [ ] maybe set up a logging channel?
 - [ ] handle idle state
-- [ ] fix `[ERROR - HandleStart]  Post validation failed: price: Cast to Number failed for value "NaN" (type number) at path "price"`
-

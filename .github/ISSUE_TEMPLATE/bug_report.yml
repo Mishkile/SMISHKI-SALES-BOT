@@ -1,5 +1,5 @@
 name: "🐛 Bug Report"
-description: Report a bug or unexpected behavior in GoSaleBot.
+description: Report a bug or unexpected behavior in JSTS-SaleBot.
 title: "[BUG] - <Brief, descriptive title>"
 labels: ["bug", "needs triage"]
 body:
@@ -14,9 +14,9 @@ body:
     attributes:
       label: Pre-submission Checklist
       options:
-        - label: I have searched the [existing issues](https://github.com/SM-26/GoSaleBot/issues) and confirmed that this bug has not already been reported.
+        - label: I have searched the [existing issues](https://github.com/SM-26/JSTS-SaleBot/issues) and confirmed that this bug has not already been reported.
           required: true
-        - label: I have checked the [GoSaleBot documentation/README](https://github.com/SM-26/GoSaleBot/blob/main/README.md) for potential solutions or common issues.
+        - label: I have checked the [JSTS-SaleBot README](https://github.com/SM-26/JSTS-SaleBot/blob/master/docs/README.md) for potential solutions or common issues.
           required: true
 
   - type: textarea
@@ -64,9 +64,9 @@ body:
       label: 💻 Environment (please complete the following information);
       description: This helps us understand where the bug occurred.
       value: |
-        - **GoSaleBot Version:** [e.g. v1.0.0 or commit hash if built from source]
+        - **JSTS-SaleBot Version:** [e.g. v1.0.0 or commit hash if built from source]
         - **Operating System:** [e.g. Windows 10, macOS Ventura, Ubuntu 22.04]
-        - **Go Version:** [e.g. go1.22.4]
+        - **Node Version:** [e.g. v18.17.0]
         - **Browser (if applicable):** [e.g. Chrome, Firefox, Edge]
         - **Other relevant software/dependencies:**
       render: markdown
