@@ -48,7 +48,7 @@ export class InputService {
 
         return new Promise((resolve) => {
             const cbListener = (query: TelegramBot.CallbackQuery) => {
-                if (!query.data || !query.data.startsWith("done_media_")) return;
+                if (query.data !== doneCallbackData) return;
                 if (query.from.id !== msg.from!.id) return;
 
                 this.bot.removeListener("message", msgListener);
