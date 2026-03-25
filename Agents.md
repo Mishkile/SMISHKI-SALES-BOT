@@ -19,7 +19,7 @@
 
 ## Repository Structure
 
-```
+```text
 /
 ├── src/
 │   ├── bot.ts                    # Entry point: initializes DB, bot, registers routes

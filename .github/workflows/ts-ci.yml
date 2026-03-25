@@ -33,9 +33,9 @@ jobs:
         run: npm run build
 
       - name: Linting
-        run: npm run lint || echo "No lint script found, skipping."
+        run: npm run lint
         continue-on-error: false
 
       - name: Run tests
-        run: npm test || echo "No tests found, skipping."
+        run: npm test
         continue-on-error: false
