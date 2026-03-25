@@ -8,7 +8,7 @@ export interface IMediaItem {
 export interface IPost extends Document {
     userId: string;
     status: "pending" | "approved" | "rejected" | "sold";
-    price: number;
+    price: string;
     title: string;
     description: string;
     location: string;
@@ -18,6 +18,8 @@ export interface IPost extends Document {
     lastBumpAt: Date | null;
     dailyBumpCount: number;
     approvedMessageId: number | null;
+    moderationMessageId: number | null;
+    rejectionReason?: string;
 }
 
 const mediaItemSchema = new Schema<IMediaItem>({
@@ -28,7 +30,7 @@ const mediaItemSchema = new Schema<IMediaItem>({
 const postSchema = new Schema<IPost>({
     userId: { type: String, required: true },
     status: { type: String, enum: ["pending", "approved", "rejected", "sold"], default: "pending" },
-    price: { type: Number, required: true },
+    price: { type: String, required: true },
     title: { type: String, required: true },
     description: { type: String, default: "" },
     location: { type: String, default: "" },
@@ -38,6 +40,8 @@ const postSchema = new Schema<IPost>({
     lastBumpAt: { type: Date, default: null },
     dailyBumpCount: { type: Number, default: 0 },
     approvedMessageId: { type: Number, default: null },
+    moderationMessageId: { type: Number, default: null },
+    rejectionReason: { type: String, default: null },
 });
 
 export default mongoose.model<IPost>("Post", postSchema);

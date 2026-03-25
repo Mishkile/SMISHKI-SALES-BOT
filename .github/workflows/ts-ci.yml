@@ -23,22 +23,19 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: "24" # Updated to Node 24 for 2026 standards
+          node-version: "24"
           cache: "npm"
 
       - name: Install dependencies
         run: npm ci
 
       - name: Type check (TypeScript)
-        # Using build to ensure the TS compiler (tsc) passes
         run: npm run build
 
       - name: Linting
-        # Runs linting but won't fail the whole CI if it fails (per your original logic)
         run: npm run lint || echo "No lint script found, skipping."
-        continue-on-error: true
+        continue-on-error: false
 
       - name: Run tests
-        # Runs tests but won't fail the whole CI if it fails
         run: npm test || echo "No tests found, skipping."
-        continue-on-error: true
+        continue-on-error: false

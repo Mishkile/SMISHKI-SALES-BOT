@@ -1,10 +1,12 @@
 {
-    "lang": "he",
-    "moderationGroupId": -1231323,
-    "approvedGroupId": -1213341,
+    "lang": "en",
+    "moderationGroupId": -1000000000000,
+    "approvedGroupId": -1234567890123,
     "moderationTopicId": 10,
     "approvedTopicId": 11,
     "timeOut": 1440,
     "validatePrice": true,
-    "minimumPhotos": 0
+    "minimumPhotos": 1,
+    "dailyBumpLimit": 2,
+    "donationsEnabled": true
 }

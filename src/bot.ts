@@ -1,5 +1,6 @@
 import "dotenv/config";
 import TelegramBot from "node-telegram-bot-api";
+import mongoose from "mongoose";
 import { connectDB } from "./config/db";
 import { BotController } from "./controllers/botController";
 
@@ -23,8 +24,9 @@ async function main() {
     // Graceful shutdown
     process.on("SIGINT", () => {
         console.log("Shutting down bot...");
-        bot.stopPolling();
-        process.exit(0);
+        bot.stopPolling().then(() => {
+            mongoose.disconnect().then(() => process.exit(0));
+        });
     });
 }
 
