@@ -6,6 +6,7 @@
     "approvedTopicId": 11,
     "timeOut": 1440,
     "validatePrice": true,
-    "minimumPhotos": 1
-    "dailyBumpLimit": 2
+    "minimumPhotos": 1,
+    "dailyBumpLimit": 2,
+    "donationsEnabled": true
 }

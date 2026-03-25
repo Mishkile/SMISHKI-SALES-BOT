@@ -16,7 +16,7 @@ const userSchema = new Schema<IUser>(
         userName: { type: String, default: null },
         isAdmin: { type: Boolean, default: false },
     },
-    { timestamps: true }
+    { timestamps: true, versionKey: false }
 );
 
 export default mongoose.model<IUser>("User", userSchema);

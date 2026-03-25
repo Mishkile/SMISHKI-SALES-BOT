@@ -12,14 +12,15 @@ This is Built with **TypeScript**, **node-telegram-bot-api**, and **MongoDB** an
 
 - **Guided Post Creation** — Step-by-step flow: title → description → price → location → photos
 - **Price Validation** — Optional numeric price validation (configurable)
-- **Photo Upload** — Multi-photo support with download & local storage
+- **Media Upload** — Multi-photo and video support
 - **Live Preview** — Users see a formatted preview before submitting
 - **Admin Moderation** — Posts sent to a moderation group with approve/reject buttons
 - **Rejection Reasons** — Admins can provide an optional reason when rejecting
 - **Post Bumping** — Users can bump their approved posts to the top (subject to daily limits)
+- **Donations** — Users can support the bot via Telegram Stars (`/donate`)
 - **Auto-Publish** — Approved posts are forwarded to a public sales group
 - **Forum Topics** — Moderation and approved posts target specific group topics
-- **Multi Localization** — All UI strings externalized in `locals.json`
+- **Multi Localization** — All UI strings externalized in `locals.json` (default En)
 - **User Mentions** — Deep-links (`tg://user`) for users without a username
 
 ---
@@ -46,6 +47,7 @@ src/
 │   ├── myPostsService.ts     # User post management (list, bump, mark sold)
 │   ├── moderationService.ts  # Approve/reject logic & rejection reasons
 │   ├── adminService.ts       # Admin configuration commands
+│   ├── paymentService.ts     # Donation invoice creation & payment event handling
 │   └── userService.ts        # User registration
 ├── tests/
 │   ├── checkLocals.ts        # Localization integrity script
@@ -62,7 +64,7 @@ src/
 The easiest way to get the bot, database, and database management UI running is via Docker. This ensures all services are networked correctly out of the box.
 
 #### Configure Environment:
-Ensure your .env is set up. For Docker, use:
+Ensure your .env and config.json files are set up. For Docker, use:
 ``` env
 MONGO_URI=mongodb://mongoserver:27017/SalesBotDB
 ```
@@ -112,27 +114,30 @@ Edit `config.json`:
 
 ```json
 {
-  "lang": "he",
+  "lang": "en",
   "moderationGroupId": -100XXXXXXXXXX,
   "approvedGroupId": -100XXXXXXXXXX,
-  "moderationTopicId": 15,
-  "approvedTopicId": 73,
+  "moderationTopicId": 11,
+  "approvedTopicId": 22,
   "validatePrice": true,
-  "minimumPhotos": 0
+  "minimumPhotos": 1,
+  "dailyBumpLimit": 2,
+  "donationsEnabled": true
 }
 ```
 
-| Field               | Description                                       |
-|---------------------|---------------------------------------------------|
-| `lang`              | Locale key (matches `locals.json`)                |
-| `moderationGroupId` | Telegram group where posts are reviewed           |
-| `approvedGroupId`   | Telegram group where approved posts are published |
-| `moderationTopicId` | Forum topic ID for moderation messages (Optional: remove if not using topics) |
-| `approvedTopicId`   | Forum topic ID for published posts (Optional: remove if not using topics) |
-| ~~`timeOut`~~           | ~~Post expiration timeout in minutes~~                |
-| `validatePrice`     | Require numeric price input                       |
-| `minimumPhotos`     | Minimum photos required per post (0 = optional)   |
-| `dailyBumpLimit`    | Maximum times a user can bump a post per day      |
+| Field                | Description                                       |
+|----------------------|---------------------------------------------------|
+| `lang`               | Locale key (matches `locals.json`)                |
+| `moderationGroupId`  | Telegram group where posts are reviewed           |
+| `approvedGroupId`    | Telegram group where approved posts are published |
+| `moderationTopicId`  | Forum topic ID for moderation messages (Optional: remove if not using topics) |
+| `approvedTopicId`    | Forum topic ID for published posts (Optional: remove if not using topics) |
+| ~~`timeOut`~~        | ~~Post expiration timeout in minutes~~            |
+| `validatePrice`      | Require numeric price input                       |
+| `minimumPhotos`      | Minimum photos required per post (0 = optional)   |
+| `dailyBumpLimit`     | Maximum times a user can bump a post per day      |
+| `donationsEnabled`   | Enable/Disable the /donate command                |
 
 ### 4. Run
 
@@ -190,7 +195,5 @@ See [LICENSE.txt](../docs/LICENSE.txt) for details.
 - [ ] make a logo for this project
 - [ ] better readme.md
 - [ ] make sure we implement an expiration mechanism somehow
-- [ ] add an admin only command: /pending that will list to the admin all of the pending post. after /pending the admin should have someway to approve/reject each post.either by inline buttons or by link to the mod group.
-- [ ] add an admin only command: /clearpending to mark all of the pending post as expired. they can not be published anymore.
 - [ ] maybe set up a logging channel?
 - [ ] handle idle state

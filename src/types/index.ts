@@ -13,6 +13,7 @@ export interface BotConfig {
     validatePrice: boolean;
     minimumMedia: number;
     dailyBumpLimit: number;
+    donationsEnabled?: boolean;
 }
 
 export interface LocaleStrings {
@@ -66,6 +67,16 @@ export interface LocaleStrings {
     helpAdminSection: string;
     helpConfig: string;
     helpTest: string;
+    helpDonate: string;
+    donateTitle: string;
+    donateChooseAmount: string;
+    donateOther: string;
+    donateEnterAmount: string;
+    donateInvalidAmount: string;
+    donateInvoiceTitle: string;
+    donateInvoiceDesc: string;
+    donationDisabled: string;
+    donationSuccess: string;
     soldTag: string;
     latestPostTag: string;
     [key: string]: string;
@@ -77,4 +88,5 @@ export interface Locals {
 
 export interface UserSession {
     isIdle: boolean;
+    awaitingDonation?: boolean;
 }

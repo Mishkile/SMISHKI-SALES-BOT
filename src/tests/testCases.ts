@@ -2,6 +2,7 @@ import TelegramBot from "node-telegram-bot-api";
 import postRepository from "../repositories/postRepository";
 import { PostService } from "../services/postService";
 import { UserService } from "../services/userService";
+import { PaymentService } from "../services/paymentService";
 import { BotConfig, Locals, MediaItem } from "../types";
 
 /**
@@ -21,6 +22,7 @@ export const TEST_CASES: Record<string, { label: string; run: TestCaseFn }> = {
     full_post: { label: "📦 Full post (3 photos)", run: testCase1_FullPost },
     no_media: { label: "📝 No media", run: testCase2_NoMedia },
     one_photo: { label: "🖼 One photo", run: testCase3_OnePhoto },
+    simulate_donation: { label: "💰 Simulate Donation (50 Stars)", run: testCase_SimulateDonation },
 };
 
 type TestCaseFn = (
@@ -29,6 +31,7 @@ type TestCaseFn = (
     locals: Locals,
     postService: PostService,
     userService: UserService,
+    paymentService: PaymentService,
     msg: TelegramBot.Message
 ) => Promise<void>;
 
@@ -41,6 +44,7 @@ async function testCase1_FullPost(
     locals: Locals,
     postService: PostService,
     userService: UserService,
+    paymentService: PaymentService,
     msg: TelegramBot.Message
 ): Promise<void> {
     if (!msg.from) throw new Error("Test requires a valid user in message context");
@@ -80,6 +84,7 @@ async function testCase2_NoMedia(
     locals: Locals,
     postService: PostService,
     userService: UserService,
+    paymentService: PaymentService,
     msg: TelegramBot.Message
 ): Promise<void> {
     if (!msg.from) throw new Error("Test requires a valid user in message context");
@@ -119,6 +124,7 @@ async function testCase3_OnePhoto(
     locals: Locals,
     postService: PostService,
     userService: UserService,
+    paymentService: PaymentService,
     msg: TelegramBot.Message
 ): Promise<void> {
     if (!msg.from) throw new Error("Test requires a valid user in message context");
@@ -147,4 +153,37 @@ async function testCase3_OnePhoto(
 
     await postService.sendToModeration(String(post._id), postText, media);
     bot.sendMessage(msg.chat.id, `✅ Test post (1 photo) sent to moderation (ID: ${post._id})`);
+}
+
+/**
+ * CASE 4: Simulate a successful donation.
+ */
+async function testCase_SimulateDonation(
+    bot: TelegramBot,
+    config: BotConfig,
+    locals: Locals,
+    postService: PostService,
+    userService: UserService,
+    paymentService: PaymentService,
+    msg: TelegramBot.Message
+): Promise<void> {
+    // Create a fake successful payment message
+    const fakePaymentMessage = {
+        ...msg,
+        successful_payment: {
+            currency: "XTR",
+            total_amount: 50,
+            invoice_payload: JSON.stringify({ type: "donation", amount: 50 }),
+            telegram_payment_charge_id: "test_charge_id",
+            provider_payment_charge_id: "test_provider_id"
+        }
+    } as TelegramBot.Message;
+
+    console.log("Simulating donation payment...");
+
+    // Trigger the actual handler in payment service
+    await paymentService.handleSuccessfulPayment(fakePaymentMessage);
+
+    // Send confirmation of test
+    bot.sendMessage(msg.chat.id, "✅ Simulated donation event triggered. You should see the 'Thank you' message above.");
 }

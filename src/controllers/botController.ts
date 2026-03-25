@@ -10,6 +10,7 @@ import { ModerationService } from "../services/moderationService";
 import { UserService } from "../services/userService";
 import { MyPostsService } from "../services/myPostsService";
 import { AdminService } from "../services/adminService";
+import { PaymentService } from "../services/paymentService";
 import userRepository from "../repositories/userRepository";
 import { TEST_CASES } from "../tests/testCases"; // Comment out to disable tests
 
@@ -29,6 +30,7 @@ export class BotController {
     private userService: UserService;
     private myPostsService: MyPostsService;
     private adminService: AdminService;
+    private paymentService: PaymentService;
 
     constructor(bot: TelegramBot) {
         this.bot = bot;
@@ -42,6 +44,7 @@ export class BotController {
         this.userService = new UserService();
         this.myPostsService = new MyPostsService(bot, this.config, this.locals, this.postService);
         this.adminService = new AdminService(bot, this.config, this.locals);
+        this.paymentService = new PaymentService(bot, this.config, this.locals);
     }
 
     async syncSoldPosts(): Promise<void> {
@@ -164,6 +167,10 @@ export class BotController {
             this.locals[lang].helpHelp,
         ];
 
+        if (this.config.donationsEnabled !== false) {
+            lines.splice(3, 0, this.locals[lang].helpDonate);
+        }
+
         const isAdmin = await userRepository.isAdmin(String(msg.from!.id));
         if (isAdmin) {
             lines.push("");
@@ -173,6 +180,29 @@ export class BotController {
         }
 
         await this.bot.sendMessage(msg.chat.id, lines.join("\n"), { parse_mode: "HTML" });
+    }
+
+    async handleDonate(msg: TelegramBot.Message): Promise<void> {
+        if (this.config.donationsEnabled === false) {
+            await this.bot.sendMessage(msg.chat.id, this.locals[this.config.lang].donationDisabled);
+            return;
+        }
+
+        const lang = this.config.lang;
+        const text = `${this.locals[lang].donateTitle}\n${this.locals[lang].donateChooseAmount}`;
+
+        const buttons = [
+            [
+                { text: "⭐ 50", callback_data: "donate_50" },
+                { text: "⭐ 150", callback_data: "donate_150" },
+                { text: this.locals[lang].donateOther, callback_data: "donate_other" }
+            ]
+        ];
+
+        await this.bot.sendMessage(msg.chat.id, text, {
+            parse_mode: "HTML",
+            reply_markup: { inline_keyboard: buttons }
+        });
     }
 
     registerRoutes(): void {
@@ -213,12 +243,12 @@ export class BotController {
 
                     if (key === "all") {
                         for (const tc of Object.values(TEST_CASES)) {
-                            await tc.run(this.bot, this.config, this.locals, this.postService, this.userService, fakeMsg);
+                            await tc.run(this.bot, this.config, this.locals, this.postService, this.userService, this.paymentService, fakeMsg);
                         }
                     } else {
                         const tc = TEST_CASES[key];
                         if (!tc) return;
-                        tc.run(this.bot, this.config, this.locals, this.postService, this.userService, fakeMsg);
+                        tc.run(this.bot, this.config, this.locals, this.postService, this.userService, this.paymentService, fakeMsg);
                     }
                     return;
                 }
@@ -235,10 +265,68 @@ export class BotController {
 
                 if (query.data.startsWith("bump_")) {
                     await this.myPostsService.handleBumpCallback(query);
+                    return;
+                }
+
+                // --- Donation Callbacks ---
+                if (query.data.startsWith("donate_")) {
+                    const action = query.data.replace("donate_", "");
+                    const chatId = query.message?.chat.id;
+                    if (!chatId) return;
+
+                    // Clear buttons
+                    this.bot.editMessageReplyMarkup({ inline_keyboard: [] }, { chat_id: chatId, message_id: query.message?.message_id });
+                    this.bot.answerCallbackQuery(query.id);
+
+                    if (action === "other") {
+                        const session = this.getSession(query.from.id);
+                        session.awaitingDonation = true;
+                        this.bot.sendMessage(chatId, this.locals[this.config.lang].donateEnterAmount);
+                    } else {
+                        const amount = parseInt(action, 10);
+                        if (!isNaN(amount)) {
+                            await this.paymentService.sendDonationInvoice(chatId, amount);
+                        }
+                    }
                 }
             } catch (err) {
                 console.error("[ERROR - callback_query]", (err as Error).message);
             }
         });
+
+        // --- Payment Events ---
+        this.bot.on("pre_checkout_query", async (query) => {
+            await this.paymentService.handlePreCheckout(query);
+        });
+
+        // Global message listener for payments and generic input
+        this.bot.on("message", async (msg) => {
+            // 1. Handle Successful Payment
+            if (msg.successful_payment) {
+                await this.paymentService.handleSuccessfulPayment(msg);
+                return;
+            }
+
+            // 2. Handle Custom Donation Amount
+            if (msg.from) {
+                const session = this.getSession(msg.from.id);
+                if (session.awaitingDonation && msg.text) {
+                    // Ignore commands so we don't block /cancel or /start
+                    if (msg.text.startsWith("/")) return;
+
+                    // Try to parse amount
+                    const amount = parseInt(msg.text, 10);
+                    if (!isNaN(amount) && amount > 0) {
+                        session.awaitingDonation = false; // Reset state
+                        await this.paymentService.sendDonationInvoice(msg.chat.id, amount);
+                    } else {
+                        await this.bot.sendMessage(msg.chat.id, this.locals[this.config.lang].donateInvalidAmount);
+                    }
+                    return;
+                }
+            }
+        });
+
+        this.bot.onText(/\/donate/, (msg) => this.handleDonate(msg));
     }
 }
