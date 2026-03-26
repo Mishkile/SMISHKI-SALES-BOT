@@ -256,7 +256,7 @@ export class BotController {
                     } else {
                         const tc = TEST_CASES[key];
                         if (!tc) return;
-                        tc.run(this.bot, this.config, this.locals, this.postService, this.userService, this.paymentService, this.inputService, fakeMsg);
+                        await tc.run(this.bot, this.config, this.locals, this.postService, this.userService, this.paymentService, this.inputService, fakeMsg);
                     }
                     return;
                 }
@@ -320,8 +320,10 @@ export class BotController {
                 const session = this.getSession(msg.from.id);
                 if (session.awaitingDonation && msg.text) {
                     // Ignore commands so we don't block /cancel or /start
-                    if (msg.text.startsWith("/")) return;
-
+                    if (msg.text.startsWith("/")) {
+                        session.awaitingDonation = false;
+                        return;
+                    }
                     // Try to parse amount
                     const amount = parseInt(msg.text, 10);
                     if (!isNaN(amount) && amount > 0) {

@@ -36,6 +36,7 @@ This is Built with **TypeScript**, **node-telegram-bot-api**, and **MongoDB** an
 | `/donate` | Support the bot by donating Telegram Stars. |
 | `/help` | Show the list of available commands. |
 
+
 ### 🛡️ Admin Commands
 | Command | Description |
 | :--- | :--- |
@@ -43,6 +44,7 @@ This is Built with **TypeScript**, **node-telegram-bot-api**, and **MongoDB** an
 | `/clearpending` | Bulk expire (reject) all currently pending posts. |
 | `/config` | View or update bot configuration at runtime (e.g., `/config dailyBumpLimit 5`). |
 | `/test` | Run built-in test scenarios to verify bot functionality. |
+
 
 ---
 

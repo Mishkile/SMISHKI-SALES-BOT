@@ -24,9 +24,10 @@ async function main() {
     // Graceful shutdown
     process.on("SIGINT", () => {
         console.log("Shutting down bot...");
-        bot.stopPolling().then(() => {
-            mongoose.disconnect().then(() => process.exit(0));
-        });
+        bot.stopPolling()
+            .then(() => mongoose.disconnect())
+            .catch((err) => console.error("Shutdown error:", err))
+            .finally(() => process.exit(0));
     });
 }
 

@@ -65,7 +65,8 @@ function runCheck() {
 
     for (const key of sortedKeys) {
         // Matches .keyName or "keyName" or 'keyName'
-        const regex = new RegExp(`\\.(${key})\\b|"'["']`);
+        const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const regex = new RegExp(`\\.${escapedKey}\\b|\\[["']${escapedKey}["']\\]`);
         if (!regex.test(fileContents)) {
             unusedKeys.push(key);
         }
