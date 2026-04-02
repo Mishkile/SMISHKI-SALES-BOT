@@ -154,13 +154,13 @@ Edit `config.json`:
 | `lang`               | Locale key (matches `locals.json`)                |
 | `moderationGroupId`  | Telegram group where posts are reviewed           |
 | `approvedGroupId`    | Telegram group where approved posts are published |
-| `moderationTopicId`  | Forum topic ID for moderation messages (Optional: remove if not using topics) |
-| `approvedTopicId`    | Forum topic ID for published posts (Optional: remove if not using topics) |
-| ~~`timeOut`~~        | ~~Post expiration timeout in minutes~~            |
+| `moderationTopicId`  | Forum topic ID for moderation messages (Optional: set to null if not using topics) |
+| `approvedTopicId`    | Forum topic ID for published posts (Optional: set to null if not using topics) |
 | `validatePrice`      | Require numeric price input                       |
 | `minimumPhotos`      | Minimum photos required per post (0 = optional)   |
 | `dailyBumpLimit`     | Maximum times a user can bump a post per day      |
 | `donationsEnabled`   | Enable/Disable the /donate command                |
+| ~~`timeOut`~~        | ~~Post expiration timeout in minutes~~            |
 
 ### 4. Run
 

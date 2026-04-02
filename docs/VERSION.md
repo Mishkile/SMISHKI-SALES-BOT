@@ -9,7 +9,7 @@ This project follows [Semantic Versioning 2.0.0](https://semver.org/):
 - **PATCH** version: Backward-compatible bug fixes
 
 ## Current Version
-0.0.4
+0.0.5
 
 ## Changelog
 
