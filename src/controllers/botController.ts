@@ -171,13 +171,17 @@ export class BotController {
             "",
             localeService.t(locale, 'helpStart'),
             localeService.t(locale, 'helpMyPosts'),
-            localeService.t(locale, 'helpFaq'),
-            localeService.t(locale, 'helpLang'),
-            localeService.t(locale, 'helpHelp'),
         ];
 
+        if (this.config.enableFaq !== false) {
+            lines.push(localeService.t(locale, 'helpFaq'));
+        }
+
+        lines.push(localeService.t(locale, 'helpLang'));
+        lines.push(localeService.t(locale, 'helpHelp'));
+
         if (this.config.donationsEnabled !== false) {
-            lines.splice(3, 0, localeService.t(locale, 'helpDonate'));
+            lines.push(localeService.t(locale, 'helpDonate'));
         }
 
         const isAdmin = await userRepository.isAdmin(String(msg.from!.id));
@@ -242,7 +246,9 @@ export class BotController {
         this.bot.onText(/\/myposts/, (msg) => this.myPostsService.showPosts(msg));
         this.bot.onText(/\/help/, (msg) => this.showHelp(msg));
         this.bot.onText(/\/lang/, (msg) => this.handleLang(msg));
-        this.bot.onText(/\/faq/, (msg) => this.faqService.handleFaq(msg));
+        if (this.config.enableFaq !== false) {
+            this.bot.onText(/\/faq/, (msg) => this.faqService.handleFaq(msg));
+        }
         this.bot.onText(/\/config(.*)/, (msg, match) => this.adminService.handleConfig(msg, match?.[1] ?? ""));
         this.bot.onText(/\/pending/, (msg) => this.pendingService.handlePending(msg));
         this.bot.onText(/\/clearpending/, (msg) => this.pendingService.handleClearPending(msg));

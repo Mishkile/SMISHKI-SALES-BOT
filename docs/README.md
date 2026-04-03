@@ -305,6 +305,7 @@ Edit `config.json`:
 | `minimumPhotos`      | Minimum photos required per post (0 = optional)   |
 | `dailyBumpLimit`     | Maximum times a user can bump a post per day      |
 | `donationsEnabled`   | Enable/Disable the /donate command                |
+| `enableFaq`          | Enable/Disable the /faq command                   |
 | ~~`timeOut`~~        | ~~Post expiration timeout in minutes~~            |
 
 ### 4. Run

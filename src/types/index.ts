@@ -14,6 +14,7 @@ export interface BotConfig {
     minimumMedia: number;
     dailyBumpLimit: number;
     donationsEnabled?: boolean;
+    enableFaq?: boolean;
 }
 
 export interface LocaleStrings {
