@@ -11,7 +11,7 @@ class UserRepository {
             { $set: userData },
             {
                 upsert: true,
-                new: true,
+                returnDocument: 'after',
                 runValidators: true
             }
         ).exec();
@@ -21,7 +21,9 @@ class UserRepository {
         return User.findOneAndUpdate(
             { userId },
             { $set: updateData },
-            { new: true }
+            {
+                returnDocument: 'after'
+            }
         ).exec();
     }
 
