@@ -1,6 +1,9 @@
 import fs from 'fs';
 import path from 'path';
-import { LocaleService } from '../types/index.js';
+import { LocaleService, BotConfig } from '../types/index.js';
+
+const configPath = path.join(process.cwd(), 'config.json');
+const config: BotConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
 
 class LocaleServiceImpl implements LocaleService {
     private localesDir = path.join(process.cwd(), 'src', 'locales');
@@ -34,7 +37,8 @@ class LocaleServiceImpl implements LocaleService {
     }
 
     resolveUserLocale(user: any): string {
-        console.info('[INFO - LocaleService] resolveUserLocale called', { preferredLocale: user?.preferredLocale, languageCode: user?.languageCode });
+        const userIdentifier = user?.userName || user?.userId || 'unknown';
+        console.info('[INFO - LocaleService] resolveUserLocale called', { user: userIdentifier, preferredLocale: user?.preferredLocale, languageCode: user?.languageCode });
         // user.preferredLocale > user.languageCode normalized > config default
         if (user?.preferredLocale) {
             const normalized = this.normalizeLocale(user.preferredLocale);
@@ -52,9 +56,8 @@ class LocaleServiceImpl implements LocaleService {
             }
             console.warn('[WARN - LocaleService] languageCode unsupported', user.languageCode);
         }
-        // Fallback to config default, assume 'en' for now, but should be from config
-        console.warn('[WARN - LocaleService] falling back to default locale', 'en');
-        return 'en'; // TODO: get from config
+        console.warn('[WARN - LocaleService] falling back to default locale', config.lang);
+        return config.lang;
     }
 
     getMessages(locale: string, namespace: string = 'common'): Record<string, string> {
@@ -79,6 +82,7 @@ class LocaleServiceImpl implements LocaleService {
     }
 
     t(locale: string, key: string, params?: Record<string, any>): string {
+        // console.info('[INFO - LocaleService] translation requested', { locale, key });
         const messages = this.getMessages(locale);
         let text = messages[key];
 
