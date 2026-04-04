@@ -38,7 +38,7 @@ class LocaleServiceImpl implements LocaleService {
 
     resolveUserLocale(user: any): string {
         const userIdentifier = user?.userName || user?.userId || 'unknown';
-        // console.info('[INFO - LocaleService] resolveUserLocale called', { user: userIdentifier, preferredLocale: user?.preferredLocale, languageCode: user?.languageCode });
+        console.debug('[DEBUG - LocaleService] resolveUserLocale called', { user: userIdentifier, preferredLocale: user?.preferredLocale, languageCode: user?.languageCode });
         // user.preferredLocale > user.languageCode normalized > config default
         if (user?.preferredLocale) {
             const normalized = this.normalizeLocale(user.preferredLocale);

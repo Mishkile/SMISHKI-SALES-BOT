@@ -22,7 +22,7 @@ export class FaqService {
             await this.renderNode(msg.chat.id, locale, null);
         } catch (err) {
             console.error("[ERROR - FaqService.handleFaq]", (err as Error).message);
-            await this.bot.sendMessage(msg.chat.id, "Error loading FAQ. Please try again later.");
+            await this.bot.sendMessage(msg.chat.id, localeService.t(this.config.lang, 'generalError'));
         }
     }
 
@@ -42,7 +42,7 @@ export class FaqService {
     private async renderNode(chatId: number, locale: string, nodeId: string | null, messageId?: number): Promise<void> {
         const faqs = localeService.getFaqs(locale);
         if (!faqs || Object.keys(faqs).length === 0) {
-            await this.bot.sendMessage(chatId, "FAQ information not available for your language.");
+            await this.bot.sendMessage(chatId, localeService.t(locale, 'faqNotAvailable'));
             return;
         }
 
@@ -52,26 +52,31 @@ export class FaqService {
             return k.startsWith(nodeId + '.') && k.split('.').length === nodeId.split('.').length + 1;
         });
 
-        const text = nodeId ? `<b>${faqs[nodeId]}</b>` : `<b>${localeService.t(locale, 'helpFaq')}</b>`;
-
-        // If this is a leaf node (answer), we might want to show its content 
-        // but in your schema, the parent is the question and the child is the answer.
+        const baseText = nodeId ? `<b>${faqs[nodeId]}</b>` : `<b>${localeService.t(locale, 'helpFaq')}</b>`;
+        const bodyParts: string[] = [];
         const buttons: TelegramBot.InlineKeyboardButton[][] = [];
 
         for (const childKey of children) {
-            const label = faqs[childKey].length > 30
-                ? faqs[childKey].substring(0, 27) + "..."
-                : faqs[childKey];
+            const isBranch = keys.some(k => k.startsWith(childKey + '.'));
 
-            buttons.push([{ text: label, callback_data: `faq_${childKey}` }]);
+            if (isBranch) {
+                const label = faqs[childKey].length > 30
+                    ? faqs[childKey].substring(0, 27) + "..."
+                    : faqs[childKey];
+                buttons.push([{ text: label, callback_data: `faq_${childKey}` }]);
+            } else {
+                bodyParts.push(faqs[childKey]);
+            }
         }
+
+        const text = [baseText, ...bodyParts].join('\n\n');
 
         // Add Back button
         if (nodeId) {
             const parentId = nodeId.includes('.')
                 ? nodeId.substring(0, nodeId.lastIndexOf('.'))
                 : "root";
-            buttons.push([{ text: "⬅️ " + localeService.t(locale, 'cancelButton').replace('❌ ', ''), callback_data: `faq_${parentId}` }]);
+            buttons.push([{ text: localeService.t(locale, 'backButton'), callback_data: `faq_${parentId}` }]);
         }
 
         const options: TelegramBot.SendMessageOptions & TelegramBot.EditMessageTextOptions = {
