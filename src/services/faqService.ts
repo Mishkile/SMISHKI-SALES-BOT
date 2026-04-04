@@ -19,23 +19,74 @@ export class FaqService {
             await this.userService.ensureUser(msg.from!);
             const user = await userRepository.findByUserId(String(msg.from!.id));
             const locale = localeService.resolveUserLocale(user);
-
-            const faqs = localeService.getFaqs(locale);
-            if (!faqs || Object.keys(faqs).length === 0) {
-                console.warn('[WARN - FaqService.handleFaq] No FAQs found for locale', { locale });
-                await this.bot.sendMessage(msg.chat.id, "FAQ information not available for your language.");
-                return;
-            }
-
-            let faqText = "<b>Airsoft FAQ</b>\n\n";
-            for (const [key, value] of Object.entries(faqs)) {
-                faqText += `<b>${key}</b>: ${value}\n\n`;
-            }
-
-            await this.bot.sendMessage(msg.chat.id, faqText, { parse_mode: "HTML" });
+            await this.renderNode(msg.chat.id, locale, null);
         } catch (err) {
             console.error("[ERROR - FaqService.handleFaq]", (err as Error).message);
             await this.bot.sendMessage(msg.chat.id, "Error loading FAQ. Please try again later.");
+        }
+    }
+
+    async handleCallback(query: TelegramBot.CallbackQuery): Promise<void> {
+        const nodeId = query.data?.replace("faq_", "");
+        if (!nodeId || !query.message) return;
+
+        const user = await userRepository.findByUserId(String(query.from.id));
+        const locale = localeService.resolveUserLocale(user);
+
+        const targetNode = nodeId === "root" ? null : nodeId;
+
+        await this.renderNode(query.message.chat.id, locale, targetNode, query.message.message_id);
+        await this.bot.answerCallbackQuery(query.id);
+    }
+
+    private async renderNode(chatId: number, locale: string, nodeId: string | null, messageId?: number): Promise<void> {
+        const faqs = localeService.getFaqs(locale);
+        if (!faqs || Object.keys(faqs).length === 0) {
+            await this.bot.sendMessage(chatId, "FAQ information not available for your language.");
+            return;
+        }
+
+        const keys = Object.keys(faqs);
+        const children = keys.filter(k => {
+            if (!nodeId) return !k.includes('.'); // Top level
+            return k.startsWith(nodeId + '.') && k.split('.').length === nodeId.split('.').length + 1;
+        });
+
+        const text = nodeId ? `<b>${faqs[nodeId]}</b>` : `<b>${localeService.t(locale, 'helpFaq')}</b>`;
+
+        // If this is a leaf node (answer), we might want to show its content 
+        // but in your schema, the parent is the question and the child is the answer.
+        const buttons: TelegramBot.InlineKeyboardButton[][] = [];
+
+        for (const childKey of children) {
+            const label = faqs[childKey].length > 30
+                ? faqs[childKey].substring(0, 27) + "..."
+                : faqs[childKey];
+
+            buttons.push([{ text: label, callback_data: `faq_${childKey}` }]);
+        }
+
+        // Add Back button
+        if (nodeId) {
+            const parentId = nodeId.includes('.')
+                ? nodeId.substring(0, nodeId.lastIndexOf('.'))
+                : "root";
+            buttons.push([{ text: "⬅️ " + localeService.t(locale, 'cancelButton').replace('❌ ', ''), callback_data: `faq_${parentId}` }]);
+        }
+
+        const options: TelegramBot.SendMessageOptions & TelegramBot.EditMessageTextOptions = {
+            parse_mode: "HTML",
+            reply_markup: { inline_keyboard: buttons }
+        };
+
+        if (messageId) {
+            await this.bot.editMessageText(text, {
+                chat_id: chatId,
+                message_id: messageId,
+                ...options
+            } as TelegramBot.EditMessageTextOptions);
+        } else {
+            await this.bot.sendMessage(chatId, text, options);
         }
     }
 }

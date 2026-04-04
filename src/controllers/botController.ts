@@ -293,6 +293,11 @@ export class BotController {
                     return;
                 }
 
+                if (query.data.startsWith("faq_")) {
+                    await this.faqService.handleCallback(query);
+                    return;
+                }
+
                 if (query.data.startsWith("approve_") || query.data.startsWith("reject_")) {
                     await this.moderationService.handleCallback(query);
                     return;
