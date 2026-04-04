@@ -171,11 +171,13 @@ export class BotController {
             "",
             localeService.t(locale, 'helpStart'),
             localeService.t(locale, 'helpMyPosts'),
+            localeService.t(locale, 'helpLang'),
+            localeService.t(locale, 'helpHelp')
         ];
 
-        lines.push(localeService.t(locale, 'helpLang'));
-        lines.push(localeService.t(locale, 'helpHelp'));
-
+        if (this.config.enableFaq !== false) {
+            lines.push(localeService.t(locale, 'helpFaq'));
+        }
         if (this.config.donationsEnabled !== false) {
             lines.push(localeService.t(locale, 'helpDonate'));
         }
@@ -188,9 +190,6 @@ export class BotController {
             lines.push(localeService.t(locale, 'helpPending'));
             lines.push(localeService.t(locale, 'helpClearPending'));
             lines.push(localeService.t(locale, 'helpTest'));
-            if (this.config.enableFaq !== false) {
-                lines.push(localeService.t(locale, 'helpFaq'));
-            }
         }
 
         await this.bot.sendMessage(msg.chat.id, lines.join("\n"), { parse_mode: "HTML" });
