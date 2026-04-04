@@ -1,6 +1,8 @@
 import "dotenv/config";
 import TelegramBot from "node-telegram-bot-api";
 import mongoose from "mongoose";
+import * as fs from "fs";
+import * as path from "path";
 import { connectDB } from "./config/db";
 import { BotController } from "./controllers/botController";
 
@@ -19,7 +21,10 @@ async function main() {
     controller.registerRoutes();
     await controller.syncSoldPosts();
 
-    console.log("Bot is running...");
+    const pkgPath = path.join(__dirname, "../package.json");
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+
+    console.log(`Bot v${pkg.version} is running...`);
 
     // Graceful shutdown
     process.on("SIGINT", () => {

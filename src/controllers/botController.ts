@@ -192,7 +192,10 @@ export class BotController {
             lines.push(localeService.t(locale, 'helpTest'));
         }
 
-        await this.bot.sendMessage(msg.chat.id, lines.join("\n"), { parse_mode: "HTML" });
+        await this.bot.sendMessage(msg.chat.id, lines.join("\n"), {
+            parse_mode: "HTML",
+            message_thread_id: msg.message_thread_id
+        });
     }
 
     async handleLang(msg: TelegramBot.Message): Promise<void> {
@@ -211,6 +214,7 @@ export class BotController {
         const text = localeService.t(currentLocale, 'langMenu', { lang: currentLocale.toUpperCase() });
 
         await this.bot.sendMessage(msg.chat.id, text, {
+            message_thread_id: msg.message_thread_id,
             reply_markup: { inline_keyboard: [buttons] }
         });
     }
@@ -236,22 +240,47 @@ export class BotController {
 
         await this.bot.sendMessage(msg.chat.id, text, {
             parse_mode: "HTML",
+            message_thread_id: msg.message_thread_id,
             reply_markup: { inline_keyboard: buttons }
         });
     }
 
     registerRoutes(): void {
-        this.bot.onText(/\/start/, (msg) => this.HandleStart(msg));
-        this.bot.onText(/\/myposts/, (msg) => this.myPostsService.showPosts(msg));
-        this.bot.onText(/\/help/, (msg) => this.showHelp(msg));
-        this.bot.onText(/\/lang/, (msg) => this.handleLang(msg));
+        const isPrivate = (msg: TelegramBot.Message) => msg.chat.type === "private";
+
+        this.bot.onText(/\/start/, (msg) => {
+            if (!isPrivate(msg)) return;
+            this.HandleStart(msg);
+        });
+        this.bot.onText(/\/myposts/, (msg) => {
+            if (!isPrivate(msg)) return;
+            this.myPostsService.showPosts(msg);
+        });
+        this.bot.onText(/\/help/, (msg) => {
+            if (!isPrivate(msg)) return;
+            this.showHelp(msg);
+        });
+        this.bot.onText(/\/lang/, (msg) => {
+            if (!isPrivate(msg)) return;
+            this.handleLang(msg);
+        });
         if (this.config.enableFaq !== false) {
-            this.bot.onText(/\/faq/, (msg) => this.faqService.handleFaq(msg));
+            this.bot.onText(/\/faq/, (msg) => {
+                if (!isPrivate(msg)) return;
+                this.faqService.handleFaq(msg);
+            });
         }
-        this.bot.onText(/\/config(.*)/, (msg, match) => this.adminService.handleConfig(msg, match?.[1] ?? ""));
+        this.bot.onText(/\/config(.*)/, (msg, match) => {
+            if (!isPrivate(msg)) return;
+            this.adminService.handleConfig(msg, match?.[1] ?? "");
+        });
         this.bot.onText(/\/pending/, (msg) => this.pendingService.handlePending(msg));
-        this.bot.onText(/\/clearpending/, (msg) => this.pendingService.handleClearPending(msg));
+        this.bot.onText(/\/clearpending/, (msg) => {
+            if (!isPrivate(msg)) return;
+            this.pendingService.handleClearPending(msg);
+        });
         this.bot.onText(/\/test/, async (msg) => {
+            if (!isPrivate(msg)) return;
             const isAdmin = await userRepository.isAdmin(String(msg.from!.id));
             if (!isAdmin) {
                 this.bot.sendMessage(msg.chat.id, localeService.t(this.config.lang, 'notAdmin'));
@@ -262,6 +291,7 @@ export class BotController {
             ]));
             buttons.push([{ text: "🚀 Run All", callback_data: "test_all" }]);
             this.bot.sendMessage(msg.chat.id, "Select a test case:", {
+                message_thread_id: msg.message_thread_id,
                 reply_markup: { inline_keyboard: buttons },
             });
         });
@@ -381,6 +411,9 @@ export class BotController {
             }
         });
 
-        this.bot.onText(/\/donate/, (msg) => this.handleDonate(msg));
+        this.bot.onText(/\/donate/, (msg) => {
+            if (!isPrivate(msg)) return;
+            this.handleDonate(msg);
+        });
     }
 }

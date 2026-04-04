@@ -18,18 +18,23 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+      # - name: Read version from file
+      #   id: version
+      #   run: |
+      #     set -euo pipefail
+      #     # Finds the header and skips exactly 1 line to grab the version
+      #     VERSION=$(sed -n '/## Current Version/{n;p;}' docs/VERSION.md | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)
 
-      - name: Read version from file
-        id: version
+      #     if [ -z "${VERSION}" ]; then
+      #       echo "Failed to extract version from docs/VERSION.md" >&2
+      #       exit 1
+      #     fi
+      #     echo "version=${VERSION}" >> $GITHUB_OUTPUT
+      - name: Read version from package
+        id: pkg_version
         run: |
           set -euo pipefail
-          # Finds the header and skips exactly 1 line to grab the version
-          VERSION=$(sed -n '/## Current Version/{n;p;}' docs/VERSION.md | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)
-
-          if [ -z "${VERSION}" ]; then
-            echo "Failed to extract version from docs/VERSION.md" >&2
-            exit 1
-          fi
+          VERSION=$(jq -r .version package.json)
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
 
       - name: Create Version Badge
@@ -39,5 +44,5 @@ jobs:
           gistID: d0f70dbe1fa864c035f90ddf5fcce2a5
           filename: version_JSTS-SaleBot.json
           label: Version
-          message: ${{ steps.version.outputs.version }}
+          message: ${{ steps.pkg_version.outputs.version }}
           color: brightgreen
