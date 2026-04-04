@@ -23,7 +23,7 @@ export class InputService {
     }
 
     async inputWithPrompt(msg: TelegramBot.Message, prompt: string): Promise<string> {
-        await this.bot.sendMessage(msg.chat.id, prompt);
+        await this.bot.sendMessage(msg.chat.id, prompt, { message_thread_id: msg.message_thread_id });
         return this.input(msg);
     }
 
@@ -34,11 +34,11 @@ export class InputService {
     }
 
     async inputPrice(msg: TelegramBot.Message, locale: string): Promise<string> {
-        await this.bot.sendMessage(msg.chat.id, localeService.t(locale, 'enterPrice'));
+        await this.bot.sendMessage(msg.chat.id, localeService.t(locale, 'enterPrice'), { message_thread_id: msg.message_thread_id });
 
         while (true) {
             const priceInput = await this.input(msg); if (this.validatePriceValue(priceInput)) return priceInput;
-            this.bot.sendMessage(msg.chat.id, localeService.t(locale, 'invalidPrice'));
+            this.bot.sendMessage(msg.chat.id, localeService.t(locale, 'invalidPrice'), { message_thread_id: msg.message_thread_id });
         }
     }
 
@@ -85,6 +85,7 @@ export class InputService {
         const mediaPromise = this.inputMedia(msg);
 
         await this.bot.sendMessage(msg.chat.id, localeService.t(locale, 'enterMedia'), {
+            message_thread_id: msg.message_thread_id,
             reply_markup: {
                 inline_keyboard: [[
                     { text: localeService.t(locale, 'doneMediaButton'), callback_data: `done_media_${msg.from!.id}` },
@@ -100,6 +101,7 @@ export class InputService {
         const cancelId = `cancel_${msg.from!.id}_${Date.now()}`;
 
         const sentMsg = await this.bot.sendMessage(msg.chat.id, "👆", {
+            message_thread_id: msg.message_thread_id,
             reply_markup: {
                 inline_keyboard: [[
                     { text: localeService.t(locale, 'confirmButton'), callback_data: callbackId },
