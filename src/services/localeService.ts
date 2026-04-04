@@ -38,12 +38,12 @@ class LocaleServiceImpl implements LocaleService {
 
     resolveUserLocale(user: any): string {
         const userIdentifier = user?.userName || user?.userId || 'unknown';
-        console.info('[INFO - LocaleService] resolveUserLocale called', { user: userIdentifier, preferredLocale: user?.preferredLocale, languageCode: user?.languageCode });
+        // console.info('[INFO - LocaleService] resolveUserLocale called', { user: userIdentifier, preferredLocale: user?.preferredLocale, languageCode: user?.languageCode });
         // user.preferredLocale > user.languageCode normalized > config default
         if (user?.preferredLocale) {
             const normalized = this.normalizeLocale(user.preferredLocale);
             if (normalized) {
-                console.info('[INFO - LocaleService] resolved locale from preferredLocale', normalized);
+                // console.info('[INFO - LocaleService] resolved locale from preferredLocale', normalized);
                 return normalized;
             }
             console.warn('[WARN - LocaleService] preferredLocale unsupported', user.preferredLocale);
@@ -51,7 +51,7 @@ class LocaleServiceImpl implements LocaleService {
         if (user?.languageCode) {
             const normalized = this.normalizeLocale(user.languageCode);
             if (normalized) {
-                console.info('[INFO - LocaleService] resolved locale from languageCode', normalized);
+                // console.info('[INFO - LocaleService] resolved locale from languageCode', normalized);
                 return normalized;
             }
             console.warn('[WARN - LocaleService] languageCode unsupported', user.languageCode);
