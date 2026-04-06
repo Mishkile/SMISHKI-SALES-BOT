@@ -72,6 +72,7 @@ This is Built with **TypeScript**, **node-telegram-bot-api**, and **MongoDB** an
 | `/activeUsers` | List users currently in the process of creating a post. |
 | `/config` | View or update bot configuration at runtime (e.g., `/config dailyBumpLimit 5`). |
 | `/test` | Run built-in test scenarios to verify bot functionality. |
+| `/broadcast` | Send a message to the approved channel, either by replying to an existing message or by typing a new message. |
 
 
 ---

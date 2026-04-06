@@ -71,11 +71,11 @@ export class PostService {
             const group = this.mediaService.buildMediaGroup(media, text);
 
             const sentMsgs = await this.bot.sendMediaGroup(moderationGroupId, group, {
-                reply_to_message_id: moderationTopicId,
+                message_thread_id: moderationTopicId,
             } as any);
 
             await this.bot.sendMessage(moderationGroupId, localeService.t(this.config.lang, 'moderationPrompt'), {
-                reply_to_message_id: moderationTopicId,
+                message_thread_id: moderationTopicId,
                 ...approveRejectMarkup,
             } as any);
 
@@ -83,7 +83,7 @@ export class PostService {
         } else {
             const sentMsg = await this.bot.sendMessage(moderationGroupId, text, {
                 parse_mode: "HTML",
-                reply_to_message_id: moderationTopicId,
+                message_thread_id: moderationTopicId,
                 ...approveRejectMarkup,
             } as any);
 
@@ -99,18 +99,29 @@ export class PostService {
             const group = this.mediaService.buildMediaGroup(media, text);
 
             const sent = await this.bot.sendMediaGroup(approvedGroupId, group, {
-                reply_to_message_id: approvedTopicId,
+                message_thread_id: approvedTopicId,
             } as any);
 
             return sent[0]?.message_id ?? null;
         } else {
             const sent = await this.bot.sendMessage(approvedGroupId, text, {
                 parse_mode: "HTML",
-                reply_to_message_id: approvedTopicId,
+                message_thread_id: approvedTopicId,
             } as any);
 
             return sent.message_id;
         }
+    }
+
+    async sendToApprovedText(text: string): Promise<number | null> {
+        const approvedGroupId = this.config.approvedGroupId;
+        const approvedTopicId = this.config.approvedTopicId;
+        const sent = await this.bot.sendMessage(approvedGroupId, text, {
+            parse_mode: "HTML",
+            message_thread_id: approvedTopicId,
+        } as any);
+
+        return sent.message_id;
     }
 
     async markSoldInGroup(approvedMessageId: number, soldText: string, hasMedia: boolean): Promise<boolean> {
@@ -135,9 +146,8 @@ export class PostService {
             const errorMessage = (err as Error).message;
             if (errorMessage.includes("message to edit not found")) {
                 console.warn("[WARN - markSoldInGroup]", `Message with ID ${approvedMessageId} not found in group ${approvedGroupId}. Clearing approvedMessageId reference.`);
-                return false; // Message not found, so we can't mark it as sold. Let the caller clear the ID.
+                return false;
             }
-            // Existing logic for "message is not modified"
             if (errorMessage.includes("message is not modified")) {
                 return true;
             }
@@ -148,18 +158,14 @@ export class PostService {
     }
 
     async handlePublicReply(msg: TelegramBot.Message): Promise<void> {
-        // 1. Verify this is a reply in the approved channel
         if (!msg.reply_to_message || msg.chat.id !== this.config.approvedGroupId) return;
 
-        // 2. Find the post associated with the message being replied to
-        // Note: You need to implement findByApprovedMessageId in your postRepository
         const post = await postRepository.findByApprovedMessageId(msg.reply_to_message.message_id);
 
         if (post) {
             const author = await userRepository.findByUserId(post.userId);
             const locale = localeService.resolveUserLocale(author);
 
-            // 3. Notify the author
             await this.bot.sendMessage(Number(post.userId),
                 `💬 <b>${localeService.t(locale, 'newReplyNotification')}</b>\n` +
                 `Post: <i>${post.title}</i>\n` +
@@ -167,7 +173,6 @@ export class PostService {
                 { parse_mode: "HTML" }
             );
 
-            // 4. Forward the actual reply so the seller sees the content
             await this.bot.forwardMessage(Number(post.userId), msg.chat.id, msg.message_id);
 
             console.info('[INFO - PostService.handlePublicReply]', { postId: post._id, authorId: post.userId, buyerId: msg.from?.id });

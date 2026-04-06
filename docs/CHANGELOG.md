@@ -2,12 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
-## Version History
 
+## Version History
+0.1.5 - Added Admin Broadcast Command.
+  - New command `/broadcast` for admins to send messages to the approved channel, either by replying to an existing message or by typing a new message.
+  - Admins can also use a test case to test a custom broadcast message, think of it as preview broadcast in the moderation group.
 0.1.4 - Added Admin Active Users monitoring.
   - New command `/activeUsers` for admins to monitor users currently in the middle of creating a post.
   - Displays User ID, Username, and Full Name for all non-idle sessions.
-
 0.1.3 - Enhanced user post management and moderation logging.
   - Refactored `/myposts` UI: Added a dashboard summary and full message previews for approved posts with dedicated Bump/Sold buttons.
   - Added bulk management: Users can now clear all "Rejected" or "Sold" posts from their history with a single click.

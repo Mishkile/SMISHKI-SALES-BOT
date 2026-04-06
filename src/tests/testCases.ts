@@ -1,6 +1,7 @@
 import TelegramBot from "node-telegram-bot-api";
 import postRepository from "../repositories/postRepository";
 import { PostService } from "../services/postService";
+import userRepository from "../repositories/userRepository";
 import { UserService } from "../services/userService";
 import { PaymentService } from "../services/paymentService";
 import { InputService } from "../services/inputService";
@@ -26,6 +27,8 @@ export const TEST_CASES: Record<string, { label: string; run: TestCaseFn }> = {
     simulate_donation: { label: "💰 Simulate Donation (50 Stars)", run: testCase_SimulateDonation },
     free_text_price: { label: "🏷 Free text price", run: testCase_FreeTextPrice },
     faq_view: { label: "❓ View FAQ", run: testCase_FaqView },
+    broadcast_custom: { label: "✍️ Broadcast Custom Message (to Moderation)", run: testCase_BroadcastCustom },
+    broadcast_test: { label: "📢 Broadcast (to Moderation)", run: testCase_Broadcast },
 };
 
 type TestCaseFn = (
@@ -290,5 +293,69 @@ async function testCase_FaqView(
     } catch (err) {
         console.error("[ERROR - testCase_FaqView]", (err as Error).message);
         await bot.sendMessage(msg.chat.id, "❌ FAQ test failed: " + (err as Error).message);
+    }
+}
+
+/**
+ * TEST CASE: Broadcast a custom message typed by the admin.
+ * Sends a user-provided formatted message to the moderation group.
+ */
+async function testCase_BroadcastCustom(
+    bot: TelegramBot,
+    config: BotConfig,
+    localeService: LocaleService,
+    postService: PostService,
+    userService: UserService,
+    paymentService: PaymentService,
+    inputService: InputService,
+    msg: TelegramBot.Message
+): Promise<void> {
+    const moderationGroupId = config.moderationGroupId;
+    const moderationTopicId = config.moderationTopicId;
+    const user = await userRepository.findByUserId(String(msg.from!.id));
+    const locale = localeService.resolveUserLocale(user);
+
+    try {
+        const customMessage = await inputService.inputWithPrompt(msg, localeService.t(locale, 'broadcastEnterCustomMessage'));
+        await bot.sendMessage(moderationGroupId, customMessage, {
+            parse_mode: "HTML",
+            message_thread_id: moderationTopicId
+        });
+        await bot.sendMessage(msg.chat.id, "✅ Custom broadcast message sent to the moderation group.");
+    } catch (err) {
+        console.error("[ERROR - testCase_BroadcastCustom]", (err as Error).message);
+        await bot.sendMessage(msg.chat.id, "❌ Custom broadcast test failed: " + (err as Error).message);
+    }
+}
+
+/**
+ * TEST CASE: Broadcast simulation.
+ * Sends a formatted message to the moderation group instead of the approved group 
+ * to test delivery and formatting without affecting the public channel.
+ */
+async function testCase_Broadcast(
+    bot: TelegramBot,
+    config: BotConfig,
+    localeService: LocaleService,
+    postService: PostService,
+    userService: UserService,
+    paymentService: PaymentService,
+    inputService: InputService,
+    msg: TelegramBot.Message
+): Promise<void> {
+    const moderationGroupId = config.moderationGroupId;
+    const moderationTopicId = config.moderationTopicId;
+
+    const testMessage = "<b>🚀 Broadcast Test Message</b>\n\nThis message simulates an admin broadcast. It is sent to the <i>moderation group</i> to avoid cluttering the public channel during tests.\n\nFormatting check:\n- <b>Bold text</b>\n- <i>Italic text</i>\n- <a href='https://github.com/SM-26/JSTS-SaleBot'>Link to Repository</a>\n\n✅ If you see this in the correct moderation topic, the broadcast logic is verified!";
+
+    try {
+        await bot.sendMessage(moderationGroupId, testMessage, {
+            parse_mode: "HTML",
+            message_thread_id: moderationTopicId
+        });
+        await bot.sendMessage(msg.chat.id, "✅ Broadcast test message sent to the moderation group.");
+    } catch (err) {
+        console.error("[ERROR - testCase_Broadcast]", (err as Error).message);
+        await bot.sendMessage(msg.chat.id, "❌ Broadcast test failed: " + (err as Error).message);
     }
 }

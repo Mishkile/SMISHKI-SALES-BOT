@@ -195,6 +195,7 @@ export class BotController {
             lines.push(localeService.t(locale, 'helpActiveUsers'));
             lines.push(localeService.t(locale, 'helpPending'));
             lines.push(localeService.t(locale, 'helpClearPending'));
+            lines.push(localeService.t(locale, 'helpBroadcast'));
             lines.push(localeService.t(locale, 'helpTest'));
         }
 
@@ -330,6 +331,10 @@ export class BotController {
         this.bot.onText(/\/clearpending/, (msg) => {
             if (!isPrivate(msg)) return;
             this.pendingService.handleClearPending(msg);
+        });
+        this.bot.onText(/\/broadcast(.*)/, (msg, match) => {
+            if (!isPrivate(msg)) return;
+            this.adminService.handleBroadcast(msg, match?.[1] ?? "");
         });
         this.bot.onText(/\/test/, async (msg) => {
             if (!isPrivate(msg)) return;
