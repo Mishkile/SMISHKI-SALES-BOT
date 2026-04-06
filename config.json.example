@@ -12,5 +12,6 @@
     "enableFaq": true,
     "faqAllowInGroups": boolean,
     "faqMaxButtonsPerRow": 3,
-    "faqMaxDepth": null
+    "faqMaxDepth": null,
+    "broadcastTopicId": null
 }

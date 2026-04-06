@@ -4,7 +4,6 @@ import * as path from "path";
 import { BotConfig } from "../types";
 import userRepository from "../repositories/userRepository";
 import { localeService } from "./localeService";
-import { PostService } from "./postService";
 
 const configPath = path.join(__dirname, "../../config.json");
 
@@ -105,15 +104,17 @@ export class AdminService {
         }
 
         const approvedGroupId = this.config.approvedGroupId;
-        const approvedTopicId = this.config.approvedTopicId;
+        const broadcastTopicId = (this.config as any).broadcastTopicId;
 
-        // Setup options once for both scenarios
+        // Setup options once for both scenarios. 
+        // We use 'any' for options to safely handle the dynamic addition of message_thread_id
         const options: TelegramBot.CopyMessageOptions & TelegramBot.SendMessageOptions = {
             parse_mode: "HTML"
-        };
+        } as any;
 
-        if (approvedTopicId) {
-            (options as any).message_thread_id = Number(approvedTopicId);
+        // If broadcastTopicId is null or undefined, it will go to the General topic
+        if (broadcastTopicId !== null && broadcastTopicId !== undefined) {
+            options.message_thread_id = Number(broadcastTopicId);
         }
 
         try {
@@ -148,7 +149,7 @@ export class AdminService {
                 stack: (err as Error).stack,
                 sentParams: {
                     approvedGroupId: `${approvedGroupId} (${typeof approvedGroupId})`,
-                    configTopicId: `${this.config.approvedTopicId} (${typeof this.config.approvedTopicId})`,
+                    broadcastTopicId: `${broadcastTopicId} (${typeof broadcastTopicId})`,
                     optionsThreadId: `${(options as any).message_thread_id} (${typeof (options as any).message_thread_id})`
                 }
             });
