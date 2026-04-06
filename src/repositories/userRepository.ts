@@ -5,13 +5,13 @@ class UserRepository {
         return User.findOne({ userId }).exec();
     }
 
-    async upsertUser(userId: string, userData: Partial<IUser>): Promise<IUser | null> {
+    async upsertUserWithInsert(userId: string, setData: Partial<IUser>, setOnInsert: Partial<IUser>): Promise<IUser | null> {
         return User.findOneAndUpdate(
             { userId },
-            { $set: userData },
+            { $set: setData, $setOnInsert: setOnInsert },
             {
                 upsert: true,
-                new: true,
+                returnDocument: 'after',
                 runValidators: true
             }
         ).exec();
@@ -21,7 +21,9 @@ class UserRepository {
         return User.findOneAndUpdate(
             { userId },
             { $set: updateData },
-            { new: true }
+            {
+                returnDocument: 'after'
+            }
         ).exec();
     }
 

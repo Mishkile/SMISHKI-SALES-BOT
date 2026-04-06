@@ -9,11 +9,13 @@ export interface BotConfig {
     approvedGroupId: number;
     moderationTopicId: number;
     approvedTopicId: number;
+    broadcastTopicId?: number | null;
     timeOut: number;
     validatePrice: boolean;
     minimumMedia: number;
     dailyBumpLimit: number;
     donationsEnabled?: boolean;
+    enableFaq?: boolean;
 }
 
 export interface LocaleStrings {
@@ -56,10 +58,17 @@ export interface LocaleStrings {
     bumpLimitReached: string;
     bumpNotApproved: string;
     bumpsUsed: string;
+    configTitle: string;
     configUsage: string;
     configKeyNotFound: string;
     configInvalidValue: string;
     configUpdated: string;
+    adminPostNotFound: string;
+    adminPostHandled: string;
+    adminUserNotFound: string;
+    adminError: string;
+    adminApproved: string;
+    adminRejected: string;
     helpTitle: string;
     helpStart: string;
     helpMyPosts: string;
@@ -90,6 +99,14 @@ export interface LocaleStrings {
 
 export interface Locals {
     [lang: string]: LocaleStrings;
+}
+
+export interface LocaleService {
+    resolveUserLocale(user: any): string;
+    getMessages(locale: string, namespace?: string): Record<string, string>;
+    getFaqs(locale: string): Record<string, string>;
+    t(locale: string, key: string, params?: Record<string, any>): string;
+    availableLocales: string[];
 }
 
 export interface UserSession {

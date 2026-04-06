@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import postRepository from "../repositories/postRepository";
 import userRepository from "../repositories/userRepository";
-import { BotConfig, Locals, UserSession } from "../types";
+import { BotConfig, UserSession } from "../types";
 import { InputService } from "../services/inputService";
 import { MediaService } from "../services/photoService";
 import { PostService } from "../services/postService";
@@ -13,6 +13,8 @@ import { MyPostsService } from "../services/myPostsService";
 import { AdminService } from "../services/adminService";
 import { PendingService } from "../services/pendingService";
 import { PaymentService } from "../services/paymentService";
+import { FaqService } from "../services/faqService";
+import { localeService } from "../services/localeService";
 import { TEST_CASES } from "../tests/testCases"; // Comment out to disable tests
 
 const configPath = path.join(__dirname, "../../config.json");
@@ -20,7 +22,6 @@ const config: BotConfig = JSON.parse(fs.readFileSync(configPath, "utf-8"));
 
 export class BotController {
     private bot: TelegramBot;
-    private locals: Locals;
     private config: BotConfig;
     private sessions: Map<number, UserSession> = new Map();
 
@@ -33,21 +34,22 @@ export class BotController {
     private adminService: AdminService;
     private pendingService: PendingService;
     private paymentService: PaymentService;
+    private faqService: FaqService;
 
     constructor(bot: TelegramBot) {
         this.bot = bot;
-        this.locals = this.loadLocals();
         this.config = config;
 
-        this.inputService = new InputService(bot, this.config, this.locals);
+        this.inputService = new InputService(bot, this.config);
         this.mediaService = new MediaService();
-        this.postService = new PostService(bot, this.config, this.locals, this.mediaService);
-        this.moderationService = new ModerationService(bot, this.config, this.locals, this.postService);
+        this.postService = new PostService(bot, this.config, this.mediaService);
+        this.moderationService = new ModerationService(bot, this.config, this.postService);
         this.userService = new UserService();
-        this.myPostsService = new MyPostsService(bot, this.config, this.locals, this.postService);
-        this.adminService = new AdminService(bot, this.config, this.locals);
-        this.pendingService = new PendingService(bot, this.config, this.locals, this.postService, this.mediaService);
-        this.paymentService = new PaymentService(bot, this.config, this.locals);
+        this.myPostsService = new MyPostsService(bot, this.config, this.postService);
+        this.adminService = new AdminService(bot, this.config);
+        this.pendingService = new PendingService(bot, this.config, this.postService, this.mediaService);
+        this.paymentService = new PaymentService(bot, this.config);
+        this.faqService = new FaqService(bot, this.config);
     }
 
     async syncSoldPosts(): Promise<void> {
@@ -66,11 +68,12 @@ export class BotController {
                     username: user?.userName || undefined,
                     firstName: user?.firstName || "User",
                 });
-                const soldText = postText + this.locals[this.config.lang].soldTag;
+                const soldText = postText + localeService.t(this.config.lang, 'soldTag');
                 const success = await this.postService.markSoldInGroup(post.approvedMessageId!, soldText, post.media.length > 0);
                 if (success) {
                     synced++;
                 } else {
+                    console.warn(`[WARN - syncSoldPosts] Failed to sync sold status for post ${post._id}. Clearing approvedMessageId.`);
                     await postRepository.setApprovedMessageId(String(post._id), null);
                 }
             }
@@ -87,29 +90,27 @@ export class BotController {
         return this.sessions.get(userId)!;
     }
 
-    private loadLocals(): Locals {
-        const localsPath = path.join(__dirname, "../../locals.json");
-        return JSON.parse(fs.readFileSync(localsPath, "utf-8"));
-    }
-
     async HandleStart(msg: TelegramBot.Message): Promise<void> {
-        const lang = this.config.lang;
+        console.info('[INFO - HandleStart] session active', { userId: msg.from?.id, chatId: msg.chat.id });
         const session = this.getSession(msg.from!.id);
 
         try {
             session.isIdle = false;
 
             await this.userService.ensureUser(msg.from!);
+            const user = await userRepository.findByUserId(String(msg.from!.id));
+            const locale = localeService.resolveUserLocale(user);
 
             // Collect post details
-            const title = await this.inputService.inputWithPrompt(msg, this.locals[lang].welcome);
-            const description = await this.inputService.inputWithPrompt(msg, this.locals[lang].enterDescription);
-            const price = await this.inputService.inputPrice(msg);
-            const location = await this.inputService.inputWithPrompt(msg, this.locals[lang].enterLocation);
-            const media = await this.inputService.promptMedia(msg);
+            const title = await this.inputService.inputWithPrompt(msg, localeService.t(locale, 'welcome'));
+            const description = await this.inputService.inputWithPrompt(msg, localeService.t(locale, 'enterDescription'));
+            const price = await this.inputService.inputPrice(msg, locale);
+            const location = await this.inputService.inputWithPrompt(msg, localeService.t(locale, 'enterLocation'));
+            const media = await this.inputService.promptMedia(msg, locale);
 
             if (media.length < this.config.minimumMedia) {
-                this.bot.sendMessage(msg.chat.id, this.locals[lang].notEnoughMedia);
+                this.bot.sendMessage(msg.chat.id, localeService.t(locale, 'notEnoughMedia'));
+                console.info('[INFO - HandleStart] session idle (insufficient media)', { userId: msg.from?.id });
                 session.isIdle = true;
                 return;
             }
@@ -128,11 +129,12 @@ export class BotController {
             const postText = this.postService.formatPostText(postData);
 
             // Preview & confirm
-            await this.postService.sendPreview(msg.chat.id, postText, media);
+            await this.postService.sendPreview(msg.chat.id, postText, media, locale);
 
-            const confirmed = await this.inputService.confirmAction(msg);
+            const confirmed = await this.inputService.confirmAction(msg, locale);
             if (!confirmed) {
-                this.bot.sendMessage(msg.chat.id, this.locals[lang].postCancelled);
+                this.bot.sendMessage(msg.chat.id, localeService.t(locale, 'postCancelled'));
+                console.info('[INFO - HandleStart] session idle (user cancelled)', { userId: msg.from?.id });
                 session.isIdle = true;
                 return;
             }
@@ -153,77 +155,192 @@ export class BotController {
                 await postRepository.setModerationMessageId(String(post._id), modMsgId);
             }
 
-            this.bot.sendMessage(msg.chat.id, this.locals[lang].postCreated);
+            this.bot.sendMessage(msg.chat.id, localeService.t(locale, 'postCreated'));
+            console.info('[INFO - HandleStart] session idle (success)', { userId: msg.from?.id });
             session.isIdle = true;
 
         } catch (err) {
             console.error("[ERROR - HandleStart] ", (err as Error).message);
-            this.bot.sendMessage(msg.chat.id, this.locals[this.config.lang].generalError);
+            this.bot.sendMessage(msg.chat.id, localeService.t(this.config.lang, 'generalError'));
+            console.info('[INFO - HandleStart] session idle (error)', { userId: msg.from?.id });
             session.isIdle = true;
         }
     }
 
     async showHelp(msg: TelegramBot.Message): Promise<void> {
-        const lang = this.config.lang;
+        await this.userService.ensureUser(msg.from!);
+        const user = await userRepository.findByUserId(String(msg.from!.id));
+        const locale = localeService.resolveUserLocale(user);
         const lines = [
-            this.locals[lang].helpTitle,
+            localeService.t(locale, 'helpTitle'),
             "",
-            this.locals[lang].helpStart,
-            this.locals[lang].helpMyPosts,
-            this.locals[lang].helpHelp,
+            localeService.t(locale, 'helpStart'),
+            localeService.t(locale, 'helpMyPosts'),
+            localeService.t(locale, 'helpLang'),
+            localeService.t(locale, 'helpHelp')
         ];
 
+        if (this.config.enableFaq !== false) {
+            lines.push(localeService.t(locale, 'helpFaq'));
+        }
         if (this.config.donationsEnabled !== false) {
-            lines.splice(3, 0, this.locals[lang].helpDonate);
+            lines.push(localeService.t(locale, 'helpDonate'));
         }
 
         const isAdmin = await userRepository.isAdmin(String(msg.from!.id));
         if (isAdmin) {
             lines.push("");
-            lines.push(this.locals[lang].helpAdminSection);
-            lines.push(this.locals[lang].helpConfig);
-            lines.push(this.locals[lang].helpPending);
-            lines.push(this.locals[lang].helpClearPending);
-            lines.push(this.locals[lang].helpTest);
+            lines.push(localeService.t(locale, 'helpAdminSection'));
+            lines.push(localeService.t(locale, 'helpConfig'));
+            lines.push(localeService.t(locale, 'helpActiveUsers'));
+            lines.push(localeService.t(locale, 'helpPending'));
+            lines.push(localeService.t(locale, 'helpClearPending'));
+            lines.push(localeService.t(locale, 'helpBroadcastTopic'));
+            lines.push(localeService.t(locale, 'helpTest'));
         }
 
-        await this.bot.sendMessage(msg.chat.id, lines.join("\n"), { parse_mode: "HTML" });
+        await this.bot.sendMessage(msg.chat.id, lines.join("\n"), {
+            parse_mode: "HTML",
+            message_thread_id: msg.message_thread_id
+        });
+    }
+
+    async handleActiveUsers(msg: TelegramBot.Message): Promise<void> {
+        console.debug('[DEBUG - handleActiveUsers] Admin command triggered', { adminId: msg.from?.id });
+        try {
+            const isAdmin = await userRepository.isAdmin(String(msg.from!.id));
+            if (!isAdmin) {
+                console.warn('[WARN - handleActiveUsers] Unauthorized access attempt detected', { userId: msg.from?.id });
+                this.bot.sendMessage(msg.chat.id, localeService.t(this.config.lang, 'notAdmin'));
+                return;
+            }
+
+            const user = await userRepository.findByUserId(String(msg.from!.id));
+            const locale = localeService.resolveUserLocale(user);
+
+            const activeUsers: string[] = [];
+            for (const [userId, session] of this.sessions.entries()) {
+                if (!session.isIdle) {
+                    const activeUser = await userRepository.findByUserId(String(userId));
+                    if (activeUser) {
+                        const username = activeUser.userName ? `@${activeUser.userName}` : 'N/A';
+                        const firstName = activeUser.firstName || 'N/A';
+                        const lastName = (activeUser as any).lastName || '';
+                        const fullName = `${firstName} ${lastName}`.trim();
+                        activeUsers.push(`• <code>${userId}</code> | ${username} | ${fullName}`);
+                    }
+                }
+            }
+
+            if (activeUsers.length === 0) {
+                console.info('[INFO - handleActiveUsers] Command executed, but no active users found.');
+                await this.bot.sendMessage(msg.chat.id, localeService.t(locale, 'adminActiveUsersEmpty'));
+                return;
+            }
+
+            console.info(`[INFO - handleActiveUsers] Reporting ${activeUsers.length} active user(s) to admin ${msg.from?.id}`);
+            const text = `${localeService.t(locale, 'adminActiveUsersTitle')}\n\n${activeUsers.join('\n')}`;
+            await this.bot.sendMessage(msg.chat.id, text, { parse_mode: "HTML" });
+        } catch (err) {
+            console.error('[CRITICAL - handleActiveUsers] System failed to generate active users list', (err as Error).message);
+            this.bot.sendMessage(msg.chat.id, localeService.t(this.config.lang, 'generalError'));
+        }
+    }
+
+    async handleLang(msg: TelegramBot.Message): Promise<void> {
+        const userIdentifier = msg.from?.username || msg.from?.id || 'unknown';
+        console.info('[INFO - handleLang]', { user: userIdentifier });
+        await this.userService.ensureUser(msg.from!);
+        const user = await userRepository.findByUserId(String(msg.from!.id));
+        const currentLocale = localeService.resolveUserLocale(user);
+        const availableLocales = localeService.availableLocales;
+
+        const buttons = availableLocales.map(lang => ({
+            text: lang.toUpperCase(),
+            callback_data: `lang_${lang}`
+        }));
+
+        const text = localeService.t(currentLocale, 'langMenu', { lang: currentLocale.toUpperCase() });
+
+        await this.bot.sendMessage(msg.chat.id, text, {
+            message_thread_id: msg.message_thread_id,
+            reply_markup: { inline_keyboard: [buttons] }
+        });
     }
 
     async handleDonate(msg: TelegramBot.Message): Promise<void> {
         if (this.config.donationsEnabled === false) {
-            await this.bot.sendMessage(msg.chat.id, this.locals[this.config.lang].donationDisabled);
+            await this.bot.sendMessage(msg.chat.id, localeService.t(this.config.lang, 'donationDisabled'));
             return;
         }
 
-        const lang = this.config.lang;
-        const text = `${this.locals[lang].donateTitle}\n${this.locals[lang].donateChooseAmount}`;
+        await this.userService.ensureUser(msg.from!);
+        const user = await userRepository.findByUserId(String(msg.from!.id));
+        const locale = localeService.resolveUserLocale(user);
+        const text = `${localeService.t(locale, 'donateTitle')}\n${localeService.t(locale, 'donateChooseAmount')}`;
 
         const buttons = [
             [
                 { text: "⭐ 50", callback_data: "donate_50" },
                 { text: "⭐ 150", callback_data: "donate_150" },
-                { text: this.locals[lang].donateOther, callback_data: "donate_other" }
+                { text: localeService.t(locale, 'donateOther'), callback_data: "donate_other" }
             ]
         ];
 
         await this.bot.sendMessage(msg.chat.id, text, {
             parse_mode: "HTML",
+            message_thread_id: msg.message_thread_id,
             reply_markup: { inline_keyboard: buttons }
         });
     }
 
     registerRoutes(): void {
-        this.bot.onText(/\/start/, (msg) => this.HandleStart(msg));
-        this.bot.onText(/\/myposts/, (msg) => this.myPostsService.showPosts(msg));
-        this.bot.onText(/\/help/, (msg) => this.showHelp(msg));
-        this.bot.onText(/\/config(.*)/, (msg, match) => this.adminService.handleConfig(msg, match?.[1] ?? ""));
+        const isPrivate = (msg: TelegramBot.Message) => msg.chat.type === "private";
+
+        this.bot.onText(/\/start/, (msg) => {
+            if (!isPrivate(msg)) return;
+            this.HandleStart(msg);
+        });
+        this.bot.onText(/\/myposts/, (msg) => {
+            if (!isPrivate(msg)) return;
+            this.myPostsService.showPosts(msg);
+        });
+        this.bot.onText(/\/help/, (msg) => {
+            if (!isPrivate(msg)) return;
+            this.showHelp(msg);
+        });
+        this.bot.onText(/\/lang/, (msg) => {
+            if (!isPrivate(msg)) return;
+            this.handleLang(msg);
+        });
+        if (this.config.enableFaq !== false) {
+            this.bot.onText(/\/faq/, (msg) => {
+                if (!isPrivate(msg)) return;
+                this.faqService.handleFaq(msg);
+            });
+        }
+        this.bot.onText(/\/config(.*)/, (msg, match) => {
+            if (!isPrivate(msg)) return;
+            this.adminService.handleConfig(msg, match?.[1] ?? "");
+        });
+        this.bot.onText(/\/activeUsers/, (msg) => {
+            if (!isPrivate(msg)) return;
+            this.handleActiveUsers(msg);
+        });
         this.bot.onText(/\/pending/, (msg) => this.pendingService.handlePending(msg));
-        this.bot.onText(/\/clearpending/, (msg) => this.pendingService.handleClearPending(msg));
+        this.bot.onText(/\/clearpending/, (msg) => {
+            if (!isPrivate(msg)) return;
+            this.pendingService.handleClearPending(msg);
+        });
+        this.bot.onText(/\/broadcast([\s\S]*)/, (msg, match) => {
+            if (!isPrivate(msg)) return;
+            this.adminService.handleBroadcast(msg, match?.[1] ?? "");
+        });
         this.bot.onText(/\/test/, async (msg) => {
+            if (!isPrivate(msg)) return;
             const isAdmin = await userRepository.isAdmin(String(msg.from!.id));
             if (!isAdmin) {
-                this.bot.sendMessage(msg.chat.id, this.locals[this.config.lang].notAdmin);
+                this.bot.sendMessage(msg.chat.id, localeService.t(this.config.lang, 'notAdmin'));
                 return;
             }
             const buttons = Object.entries(TEST_CASES).map(([key, tc]) => ([
@@ -231,6 +348,7 @@ export class BotController {
             ]));
             buttons.push([{ text: "🚀 Run All", callback_data: "test_all" }]);
             this.bot.sendMessage(msg.chat.id, "Select a test case:", {
+                message_thread_id: msg.message_thread_id,
                 reply_markup: { inline_keyboard: buttons },
             });
         });
@@ -251,18 +369,33 @@ export class BotController {
 
                     if (key === "all") {
                         for (const tc of Object.values(TEST_CASES)) {
-                            await tc.run(this.bot, this.config, this.locals, this.postService, this.userService, this.paymentService, this.inputService, fakeMsg);
+                            await tc.run(this.bot, this.config, localeService, this.postService, this.userService, this.paymentService, this.inputService, fakeMsg);
                         }
                     } else {
                         const tc = TEST_CASES[key];
                         if (!tc) return;
-                        await tc.run(this.bot, this.config, this.locals, this.postService, this.userService, this.paymentService, this.inputService, fakeMsg);
+                        await tc.run(this.bot, this.config, localeService, this.postService, this.userService, this.paymentService, this.inputService, fakeMsg);
                     }
+                    return;
+                }
+
+                if (query.data.startsWith("faq_")) {
+                    await this.faqService.handleCallback(query);
                     return;
                 }
 
                 if (query.data.startsWith("approve_") || query.data.startsWith("reject_")) {
                     await this.moderationService.handleCallback(query);
+                    return;
+                }
+
+                if (query.data === "clear_rejected") {
+                    await this.myPostsService.handleClearStatus(query, "rejected");
+                    return;
+                }
+
+                if (query.data === "clear_sold") {
+                    await this.myPostsService.handleClearStatus(query, "sold");
                     return;
                 }
 
@@ -273,6 +406,14 @@ export class BotController {
 
                 if (query.data.startsWith("bump_")) {
                     await this.myPostsService.handleBumpCallback(query);
+                    return;
+                }
+
+                if (query.data.startsWith("lang_")) {
+                    const lang = query.data.replace("lang_", "");
+                    await userRepository.updateUser(String(query.from!.id), { preferredLocale: lang });
+                    this.bot.answerCallbackQuery(query.id);
+                    this.bot.sendMessage(query.message!.chat.id, `Language set to ${lang.toUpperCase()}`);
                     return;
                 }
 
@@ -289,7 +430,7 @@ export class BotController {
                     if (action === "other") {
                         const session = this.getSession(query.from.id);
                         session.awaitingDonation = true;
-                        this.bot.sendMessage(chatId, this.locals[this.config.lang].donateEnterAmount);
+                        this.bot.sendMessage(chatId, localeService.t(this.config.lang, 'donateEnterAmount'));
                     } else {
                         const amount = parseInt(action, 10);
                         if (!isNaN(amount)) {
@@ -315,7 +456,13 @@ export class BotController {
                 return;
             }
 
-            // 2. Handle Custom Donation Amount
+            // 2. Handle Replies in the Approved Group (Buyer to Seller communication)
+            if (msg.chat.id === this.config.approvedGroupId && msg.reply_to_message) {
+                await this.postService.handlePublicReply(msg);
+                return;
+            }
+
+            // 3. Handle Custom Donation Amount
             if (msg.from) {
                 const session = this.getSession(msg.from.id);
                 if (session.awaitingDonation && msg.text) {
@@ -330,13 +477,16 @@ export class BotController {
                         session.awaitingDonation = false; // Reset state
                         await this.paymentService.sendDonationInvoice(msg.chat.id, amount);
                     } else {
-                        await this.bot.sendMessage(msg.chat.id, this.locals[this.config.lang].donateInvalidAmount);
+                        await this.bot.sendMessage(msg.chat.id, localeService.t(this.config.lang, 'donateInvalidAmount'));
                     }
                     return;
                 }
             }
         });
 
-        this.bot.onText(/\/donate/, (msg) => this.handleDonate(msg));
+        this.bot.onText(/\/donate/, (msg) => {
+            if (!isPrivate(msg)) return;
+            this.handleDonate(msg);
+        });
     }
 }

@@ -8,8 +8,11 @@ This project follows [Semantic Versioning 2.0.0](https://semver.org/):
 - **MINOR** version: Backward-compatible new features
 - **PATCH** version: Backward-compatible bug fixes
 
+> please note, until first major release (1.0.0), all versions are: 0.Major.Minor  
+> sometime a bug fix will not trigger a version bump.
+
 ## Current Version
-0.0.4
+0.1.5
 
 ## Changelog
 
@@ -17,7 +20,7 @@ See [CHANGELOG.md](../docs/CHANGELOG.md) for the full version history and releas
 
 ## How to update
 
-- Bump the version in this file and in release notes when making changes.
+- Bump the version in this file, in `package.json` and in release notes when making changes.
 - Tag releases in git using `git tag vX.Y.Z`.
 - push with `git push --tags`.
 
