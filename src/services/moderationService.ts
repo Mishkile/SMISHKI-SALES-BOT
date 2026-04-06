@@ -144,14 +144,19 @@ export class ModerationService {
 
         const skipCallbackData = `skip_reason_${adminId}_${Date.now()}`;
 
-        const sentMsg = await this.bot.sendMessage(chatId, localeService.t(this.config.lang, 'rejectReasonPrompt'), {
-            ...(topicId ? { reply_to_message_id: topicId } : {}),
+        const options: any = {
             reply_markup: {
                 inline_keyboard: [[
                     { text: localeService.t(this.config.lang, 'skipReasonButton'), callback_data: skipCallbackData },
                 ]],
             },
-        } as any);
+        };
+
+        if (topicId) {
+            options.message_thread_id = Number(topicId);
+        }
+
+        const sentMsg = await this.bot.sendMessage(chatId, localeService.t(this.config.lang, 'rejectReasonPrompt'), options);
 
         return new Promise((resolve) => {
             const cbListener = (cb: TelegramBot.CallbackQuery) => {

@@ -195,7 +195,7 @@ export class BotController {
             lines.push(localeService.t(locale, 'helpActiveUsers'));
             lines.push(localeService.t(locale, 'helpPending'));
             lines.push(localeService.t(locale, 'helpClearPending'));
-            lines.push(localeService.t(locale, 'helpBroadcast'));
+            lines.push(localeService.t(locale, 'helpBroadcastTopic'));
             lines.push(localeService.t(locale, 'helpTest'));
         }
 

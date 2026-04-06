@@ -58,7 +58,8 @@ export class PostService {
         const moderationGroupId = this.config.moderationGroupId;
         const moderationTopicId = this.config.moderationTopicId;
 
-        const approveRejectMarkup = {
+        const options: any = {
+            parse_mode: "HTML",
             reply_markup: {
                 inline_keyboard: [[
                     { text: localeService.t(this.config.lang, 'approveButton'), callback_data: `approve_${postId}` },
@@ -67,25 +68,18 @@ export class PostService {
             },
         };
 
+        if (moderationTopicId) {
+            options.message_thread_id = Number(moderationTopicId);
+        }
+
         if (media.length > 0) {
             const group = this.mediaService.buildMediaGroup(media, text);
-
-            const sentMsgs = await this.bot.sendMediaGroup(moderationGroupId, group, {
-                message_thread_id: moderationTopicId,
-            } as any);
-
-            await this.bot.sendMessage(moderationGroupId, localeService.t(this.config.lang, 'moderationPrompt'), {
-                message_thread_id: moderationTopicId,
-                ...approveRejectMarkup,
-            } as any);
+            const sentMsgs = await this.bot.sendMediaGroup(moderationGroupId, group, moderationTopicId ? { message_thread_id: Number(moderationTopicId) } as any : {});
+            await this.bot.sendMessage(moderationGroupId, localeService.t(this.config.lang, 'moderationPrompt'), options);
 
             return sentMsgs[0]?.message_id || null;
         } else {
-            const sentMsg = await this.bot.sendMessage(moderationGroupId, text, {
-                parse_mode: "HTML",
-                message_thread_id: moderationTopicId,
-                ...approveRejectMarkup,
-            } as any);
+            const sentMsg = await this.bot.sendMessage(moderationGroupId, text, options);
 
             return sentMsg.message_id;
         }
@@ -95,19 +89,18 @@ export class PostService {
         const approvedGroupId = this.config.approvedGroupId;
         const approvedTopicId = this.config.approvedTopicId;
 
+        const options: any = { parse_mode: "HTML" };
+        if (approvedTopicId) {
+            options.message_thread_id = Number(approvedTopicId);
+        }
+
         if (media.length > 0) {
             const group = this.mediaService.buildMediaGroup(media, text);
-
-            const sent = await this.bot.sendMediaGroup(approvedGroupId, group, {
-                message_thread_id: approvedTopicId,
-            } as any);
+            const sent = await this.bot.sendMediaGroup(approvedGroupId, group, options);
 
             return sent[0]?.message_id ?? null;
         } else {
-            const sent = await this.bot.sendMessage(approvedGroupId, text, {
-                parse_mode: "HTML",
-                message_thread_id: approvedTopicId,
-            } as any);
+            const sent = await this.bot.sendMessage(approvedGroupId, text, options);
 
             return sent.message_id;
         }
@@ -116,10 +109,13 @@ export class PostService {
     async sendToApprovedText(text: string): Promise<number | null> {
         const approvedGroupId = this.config.approvedGroupId;
         const approvedTopicId = this.config.approvedTopicId;
-        const sent = await this.bot.sendMessage(approvedGroupId, text, {
-            parse_mode: "HTML",
-            message_thread_id: approvedTopicId,
-        } as any);
+
+        const options: any = { parse_mode: "HTML" };
+        if (approvedTopicId) {
+            options.message_thread_id = Number(approvedTopicId);
+        }
+
+        const sent = await this.bot.sendMessage(approvedGroupId, text, options);
 
         return sent.message_id;
     }

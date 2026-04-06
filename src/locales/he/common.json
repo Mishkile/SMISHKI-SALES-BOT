@@ -50,7 +50,7 @@
     "broadcastSuccess": "ההודעה הופצה בהצלחה!",
     "broadcastUsage": "שימוש: הגב להודעה עם <code>/broadcast</code> או הקלד <code>/broadcast [הודעה]</code> כדי לשלוח לערוץ המאושר.",
     "broadcastEnterCustomMessage": "אנא הקלד את ההודעה שברצונך לשדר (תמיכה בעיצוב HTML):",
-    "helpBroadcast": "/broadcast - שליחת הודעה לערוץ המאושר",
+    "helpBroadcastTopic": "/broadcast - שליחת הודעה בקבוצה בתור הבוט",
     "helpClearPending": "/clearpending - ביטול כל הפוסטים הממתינים",
     "helpConfig": "/config - הצגת ועריכת הגדרות",
     "helpDonate": "/donate - תרומה לבוט",

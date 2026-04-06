@@ -23,14 +23,16 @@ export class PendingService {
             ? this.config.moderationTopicId
             : msg.message_thread_id;
 
-        try {
+        const options: any = { parse_mode: "HTML" };
+        if (targetThreadId) {
+            options.message_thread_id = Number(targetThreadId);
+        }
 
+        try {
             const isAdmin = await userRepository.isAdmin(String(msg.from!.id));
             if (!isAdmin) {
                 console.warn('[WARN - PendingService.handlePending] non-admin attempted access', { userId: msg.from?.id });
-                await this.bot.sendMessage(msg.chat.id, localeService.t(locale, 'notAdmin'), {
-                    message_thread_id: targetThreadId
-                });
+                await this.bot.sendMessage(msg.chat.id, localeService.t(locale, 'notAdmin'), options);
                 return;
             }
 
@@ -38,13 +40,11 @@ export class PendingService {
 
             if (!pendingPosts || pendingPosts.length === 0) {
                 console.info('[INFO - handlePending] no pending posts available');
-                await this.bot.sendMessage(msg.chat.id, localeService.t(locale, 'adminPendingEmpty'), {
-                    message_thread_id: targetThreadId
-                });
+                await this.bot.sendMessage(msg.chat.id, localeService.t(locale, 'adminPendingEmpty'), options);
                 return;
             }
 
-            await this.bot.sendMessage(msg.chat.id, localeService.t(locale, 'adminPendingTitle'), { parse_mode: "HTML", message_thread_id: targetThreadId });
+            await this.bot.sendMessage(msg.chat.id, localeService.t(locale, 'adminPendingTitle'), options);
 
             // Limit display to avoid hitting Telegram message size limits
             const displayPosts = pendingPosts.slice(0, 10);
@@ -78,26 +78,20 @@ export class PendingService {
 
                 if (post.media && post.media.length > 0) {
                     const group = this.mediaService.buildMediaGroup(post.media, postText);
-                    await this.bot.sendMediaGroup(msg.chat.id, group, {
-                        message_thread_id: targetThreadId
-                    } as any);
+                    await this.bot.sendMediaGroup(msg.chat.id, group, targetThreadId ? { message_thread_id: Number(targetThreadId) } as any : {});
+
                     // Buttons cannot be attached to a media group, so we send them in a separate message
-                    await this.bot.sendMessage(msg.chat.id, "👇", {
-                        reply_markup: replyMarkup,
-                        message_thread_id: targetThreadId
-                    });
+                    const btnOptions: any = { reply_markup: replyMarkup };
+                    if (targetThreadId) btnOptions.message_thread_id = Number(targetThreadId);
+                    await this.bot.sendMessage(msg.chat.id, "👇", btnOptions);
                 } else {
-                    await this.bot.sendMessage(msg.chat.id, postText, {
-                        parse_mode: "HTML",
-                        disable_web_page_preview: true,
-                        reply_markup: replyMarkup,
-                        message_thread_id: targetThreadId
-                    });
+                    const msgOptions: any = { ...options, disable_web_page_preview: true, reply_markup: replyMarkup };
+                    await this.bot.sendMessage(msg.chat.id, postText, msgOptions);
                 }
             }
 
             if (pendingPosts.length > 10) {
-                await this.bot.sendMessage(msg.chat.id, `...and ${pendingPosts.length - 10} more.`, { message_thread_id: targetThreadId });
+                await this.bot.sendMessage(msg.chat.id, `...and ${pendingPosts.length - 10} more.`, options);
             }
         } catch (err) {
             console.error("[ERROR - PendingService.handlePending]", err);
