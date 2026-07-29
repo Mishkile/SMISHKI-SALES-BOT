@@ -18,7 +18,9 @@ jobs:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
 
       - name: Enable auto-merge for Dependabot PRs
-        # This approves the PR and sets it to auto-squash once CI passes
+        # Never auto-merge major version bumps (e.g. typescript 7.x — svelte
+        # needs 7.1 first) - only minor/patch get approved and auto-squashed.
+        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
         run: |
           gh pr review --approve "$PR_URL"
           gh pr merge --auto --squash "$PR_URL"
