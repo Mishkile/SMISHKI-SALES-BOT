@@ -23,5 +23,5 @@ jobs:
             '.[] | select(.event=="pull_request" and (.headBranch | startswith("dependabot/"))) | .databaseId' |
           while read -r id; do
             echo "Re-running failed jobs for run $id"
-            gh run rerun "$id" --repo "$GITHUB_REPOSITORY" --failed
+            gh run rerun "$id" --repo "$GITHUB_REPOSITORY" --failed || echo "  (skipped: $id can't be rerun, e.g. too old)"
           done
