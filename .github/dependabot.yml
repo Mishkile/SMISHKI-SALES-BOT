@@ -1,7 +1,7 @@
 version: 2
 updates:
-  # Maintain npm dependencies
-  - package-ecosystem: "npm"
+  # Maintain Go module dependencies
+  - package-ecosystem: "gomod"
     directory: "/"
     schedule:
       interval: "weekly"
@@ -9,28 +9,10 @@ updates:
     groups:
       telegram-stack:
         patterns:
-          - "node-telegram-bot-api"
-          - "@types/node-telegram-bot-api"
+          - "github.com/go-telegram/*"
       database:
         patterns:
-          - "mongoose"
-          - "mongodb"
-      development-tooling:
-        patterns:
-          - "typescript*" # Captures typescript and typescript-eslint
-          - "ts-node"
-          - "nodemon"
-          - "@types/*"
-          - "eslint*" # Captures eslint
-          - "@eslint/*" # Captures @eslint/js (New)
-          - "globals"
-          - "prettier*"
-        update-types:
-          - "minor"
-          - "patch"
-      environment:
-        patterns:
-          - "dotenv*"
+          - "go.mongodb.org/*"
       other-dependencies:
         patterns:
           - "*"

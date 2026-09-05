@@ -6,13 +6,15 @@
 
 ## Project Overview
 
-**JSTS-SaleBot** is a Telegram-based marketplace bot built with **TypeScript** (Node.js). It allows users to create sale posts directly inside Telegram, which are then routed through a moderation group before being published to an approved sales channel/group. It supports post lifecycle management (pending → approved/rejected → sold/bumped) and admin runtime configuration.
+**JSTS-SaleBot** is a Telegram-based marketplace bot written in **Go**. It allows users to create sale posts directly inside Telegram, which are then routed through a moderation group before being published to an approved sales channel/group. It supports post lifecycle management (pending → approved/rejected → sold/bumped) and admin runtime configuration.
+
+It is a rewrite of the TypeScript version of the same bot. The commands, MongoDB collections (`posts`, `users`), `config.json` and locale files are identical, so both versions can run against the same data.
 
 **Stack:**
-- Runtime: Node.js + TypeScript
-- Telegram library: `node-telegram-bot-api`
-- Database: MongoDB via `mongoose`
-- Linting: ESLint + `typescript-eslint`
+- Runtime: Go 1.26+ (single static binary, locales embedded)
+- Telegram library: `github.com/go-telegram/bot` (Bot API 10.2, Rich Messages)
+- Database: MongoDB via `go.mongodb.org/mongo-driver/v2`
+- Lint/format: `gofmt`, `go vet`
 - Infrastructure: Docker + Docker Compose (bot + MongoDB + mongo-express)
 
 ---
@@ -21,43 +23,33 @@
 
 ```text
 /
-├── src/
-│   ├── bot.ts                    # Entry point: initializes DB, bot, registers routes
+├── main.go                       # Entry point: env, config, DB, bot, graceful shutdown
+├── env.go                        # .env loader (no dependency)
+├── internal/
 │   ├── config/
-│   │   └── db.ts                 # Mongoose connection helper
-│   ├── controllers/
-│   │   └── botController.ts      # Main router: registers all Telegram command/callback handlers
-│   ├── services/
-│   │   ├── inputService.ts       # Prompts user for text, price, and media input via chat
-│   │   ├── postService.ts        # Post formatting, preview, sending to groups, bump/sold editing
-│   │   ├── moderationService.ts  # Approve/reject callback handling in moderation group
-│   │   ├── myPostsService.ts     # /myposts listing, sold and bump callbacks
-│   │   ├── adminService.ts       # /config command for runtime config edits
-│   │   ├── userService.ts        # Ensures user record exists in DB on first interaction
-│   │   └── paymentService.ts     # Donation invoice creation & payment event handling
-│   ├── models/
-│   │   ├── Post.ts               # Mongoose schema: Post (pending/approved/rejected/sold)
-│   │   └── User.ts               # Mongoose schema: User (userId, username, isAdmin)
-│   ├── repositories/
-│   │   ├── postRepository.ts     # Post CRUD + status query helpers
-│   │   └── userRepository.ts     # User lookup and admin-check helpers
-│   ├── types/
-│   │   └── index.ts              # Shared TypeScript interfaces (BotConfig, LocaleService, UserSession, etc.)
-│   ├── tests/
-│   │   ├── checkLocals.ts        # Validates locale keys are complete for src/locales
-│   │   └── testCases.ts          # In-bot /test command suite (admin-only)
-│   └locales/
-│       ├── en/
-│       │   └── common.json       # English locale strings
-│       └── he/
-│           └── common.json       # Hebrew locale strings
+│   │   ├── config.go             # Config struct (mirrors config.json), live Store, Save
+│   │   └── schema.go             # Per-key /config validation rules
+│   ├── controller/
+│   │   ├── controller.go         # HandleUpdate: routing, sessions, wizard lifecycle, startup sync
+│   │   ├── commands.go           # Command handlers that live on the controller
+│   │   └── callbacks.go          # Inline-button routing
+│   ├── db/db.go                  # MongoDB connection with retry
+│   ├── listen/listen.go          # Registry: wait for a user's next message / button press
+│   ├── locale/locale.go          # Locale discovery, T(), FAQ trees
+│   ├── models/models.go          # Post & User documents (bson tags = Mongoose field names)
+│   ├── repository/               # The ONLY place that talks to MongoDB
+│   ├── rich/rich.go              # Rich Message constructors (Paragraph, Heading, List, Photo...)
+│   ├── services/                 # Business logic, one file per concern
+│   ├── testcases/testcases.go    # In-bot /test scenarios (admin-only)
+│   └── tgutil/                   # Send/Answer/ClearButtons helpers, raw rich-message edit
+├── locales/
+│   ├── embed.go                  # //go:embed of the locale files
+│   └── <lang>/common.json, faq.json
 ├── config.json.example           # Runtime config template (copy to config.json)
 ├── .env.example                  # Environment variable template (copy to .env)
-├── dockerfile                    # Multi-stage Docker build (development + production targets)
+├── Dockerfile                    # Multi-stage build (development + production targets)
 ├── docker-compose.yaml           # Bot + MongoDB + mongo-express services
-├── tsconfig.json
-├── eslint.config.mjs
-└── package.json
+└── go.mod
 ```
 
 ---
@@ -65,27 +57,32 @@
 ## Configuration Files
 
 ### `.env`
-Copy from `.env.example`. Required variables:
-| Variable     | Description                          |
-|--------------|--------------------------------------|
-| `BOT_TOKEN`  | Telegram Bot API token from @BotFather |
-| `MONGO_URI`  | MongoDB connection string             |
+Copy from `.env.example`. Variables:
+| Variable       | Description                                              |
+|----------------|----------------------------------------------------------|
+| `BOT_TOKEN`    | Telegram Bot API token from @BotFather (required)        |
+| `MONGO_URI`    | MongoDB connection string; the path is the database name |
+| `CONFIG_PATH`  | Optional, defaults to `config.json`                      |
+| `LOCALES_DIR`  | Optional, read locales from disk instead of the embedded copy |
 
 ### `config.json`
 Copy from `config.json.example`. Editable at runtime via `/config` (admin-only):
 
 | Key                 | Type    | Description                                              |
 |---------------------|---------|----------------------------------------------------------|
-| `lang`              | string  | Default locale key from `src/locales/` (e.g. `"en"`)      |
+| `lang`              | string  | Default locale key from `locales/` (e.g. `"en"`)          |
 | `moderationGroupId` | number  | Telegram group ID for the moderation channel             |
 | `approvedGroupId`   | number  | Telegram group ID where approved posts are published     |
-| `moderationTopicId` | number  | Forum topic ID within the moderation group (optional)    |
-| `approvedTopicId`   | number  | Forum topic ID within the approved group (optional)      |
-| `timeOut`           | number  | User input timeout in minutes                            |
+| `moderationTopicId` | number \| null | Forum topic ID within the moderation group        |
+| `approvedTopicId`   | number \| null | Forum topic ID within the approved group          |
+| `broadcastTopicId`  | number \| null | Forum topic for `/broadcast` (`null` = General)   |
+| `timeOut`           | number  | Unused, kept for compatibility                           |
 | `validatePrice`     | boolean | Whether to enforce numeric price input                   |
 | `minimumPhotos`     | number  | Minimum number of photos/videos required per post (0 = optional) |
 | `mediaLayout`       | string  | How multiple photos render: `"slideshow"` or `"collage"`  |
 | `dailyBumpLimit`    | number  | Max number of bumps a user can perform per day per post  |
+| `donationsEnabled`  | boolean | Enable `/donate` (default true)                          |
+| `enableFaq`         | boolean | Enable `/faq` (default true)                             |
 
 ---
 
@@ -95,38 +92,53 @@ Copy from `config.json.example`. Editable at runtime via `/config` (admin-only):
 ```
 User sends /newPost
   → InputService collects: title, description, price, location, media
-  → PostService shows preview
+  → PostService renders the preview (Rich Message)
   → User confirms
   → Post saved to DB (status: "pending")
-  → PostService forwards to moderation group
-      → ModerationService: admin approves → status: "approved", posted to approved group
-      → ModerationService: admin rejects  → status: "rejected", user notified
+  → PostService sends the card to the moderation group
+      → ModerationService: moderator approves → status: "approved", posted to approved group
+      → ModerationService: moderator rejects  → status: "rejected", user notified
   → User can /myposts:
-      → Mark as "sold"  → updates approved group message with sold tag
-      → Bump post       → re-posts with updated timestamp (subject to dailyBumpLimit)
+      → Mark as "sold"  → edits the approved-group message with the sold rendering
+      → Bump post       → re-posts (subject to dailyBumpLimit)
 ```
 
+### Update dispatch & waiting for input
+`Controller.HandleUpdate` is the single entry point (registered as the library's default handler; the library runs each update on its own goroutine). It first offers the update to the **listener registry** (`internal/listen`), then routes commands and callbacks. A wizard step that needs the user's next message calls `Listen.WaitMessage(ctx, accept)`; the accept function filters by chat and user and returns true to consume the message. This replaces the `bot.on("message")` add/remove-listener pattern of the TypeScript version. Every wait is context-aware: shutdown or a newer `/newPost` from the same user cancels it.
+
 ### Session Management
-Each Telegram user has an in-memory `UserSession` (stored in a `Map<number, UserSession>` on `BotController`). The `isIdle` flag prevents overlapping conversations. Always check and reset `session.isIdle` around async flows.
+Each Telegram user has an in-memory `Session` on the controller (`IsIdle`, `AwaitingDonation`), guarded by a mutex. `beginWizard` marks the user busy, cancels any previous wizard, and returns an `end` func that restores idle state; always `defer end()`.
 
 ### Localization
-All user-facing strings live in `src/locales/<lang>/common.json` files, where `<lang>` is the language code (e.g., `en`, `he`). Each language has its own directory containing a `common.json` file with key-value pairs (matching `LocaleStrings` in `src/types/index.ts`). The `LocaleService` handles user-specific language preferences with fallback logic: `preferredLocale` → `languageCode` → default language. When adding new strings, update **every** language's `common.json` file and run `pnpm run check-locals` to validate completeness and syntax.
+All user-facing strings live in `locales/<lang>/common.json`. `locale.Service` resolves `preferredLocale` → `languageCode` → `config.lang` and exposes `T(locale, key, params...)`. When adding new strings, update **every** language's `common.json` and run `go test ./internal/locale/` — the test fails on missing keys and warns on keys that no Go source references.
+
+### Rich Messages
+Posts, `/help` and reports are Rich Messages built with `internal/rich`. The block and text `type` discriminators are verified by `internal/rich/rich_test.go` against the Bot API wire format. Editing a message to a rich message uses `tgutil.EditRichMessage` (a direct API call) because the library's `EditMessageText` always sends its `text` field.
 
 ---
 
 ## Commands
 
-| Command   | Access    | Description                                      |
-|-----------|-----------|--------------------------------------------------|
-| `/start`  | All users | Shows a welcome greeting                          |
-| `/newPost`| All users | Begins the post creation wizard                  |
-| `/myposts`| All users | Lists user's own posts with bump/sold actions    |
-| `/lang`   | All users | Change language preference                       |
-| `/faq`    | All users | View airsoft FAQ and frequently asked questions  |
-| `/help`   | All users | Shows available commands (admins see extra items)|
-| `/config` | Admin     | View/update `config.json` keys at runtime        |
-| `/test`   | Admin     | Runs in-bot test cases from `src/tests/testCases.ts` |
-| `/donate` | All users | Donate Stars to support the bot (optional)       |
+| Command          | Access    | Description                                      |
+|------------------|-----------|--------------------------------------------------|
+| `/start`         | All users | Shows a welcome greeting                          |
+| `/newPost`       | All users | Begins the post creation wizard                  |
+| `/myposts`       | All users | Lists user's own posts with bump/sold actions    |
+| `/lang`          | All users | Change language preference                       |
+| `/faq`           | All users | View airsoft FAQ                                 |
+| `/donate`        | All users | Donate Stars to support the bot (optional)       |
+| `/help`          | All users | Shows available commands (roles see extra items) |
+| `/pending`       | Moderator | List posts awaiting approval                     |
+| `/clearpending`  | Moderator | Expire all pending posts                         |
+| `/auth`          | Moderator | Show a user's role                               |
+| `/config`        | Admin     | View/update `config.json` keys at runtime        |
+| `/activeUsers`   | Admin     | List users currently inside the wizard           |
+| `/promote`, `/demote` | Admin | Change a user's role                          |
+| `/broadcast`     | Admin     | Post to the approved group's broadcast topic     |
+| `/broadcastUsers`| Admin     | DM active users and pending/approved authors     |
+| `/test`          | Admin     | Runs in-bot test cases from `internal/testcases` |
+
+Commands are case-insensitive and matched as whole words at the start of the message (`/cmd@BotName` works too).
 
 ---
 
@@ -134,10 +146,9 @@ All user-facing strings live in `src/locales/<lang>/common.json` files, where `<
 
 ### Setup (local)
 ```bash
-cp .env.example .env          # Fill in BOT_TOKEN and MONGO_URI
+cp .env.example .env                 # Fill in BOT_TOKEN and MONGO_URI
 cp config.json.example config.json   # Adjust group IDs and settings
-pnpm install
-pnpm run dev                   # Runs via ts-node (no build required)
+go run .
 ```
 
 ### Setup (Docker)
@@ -150,14 +161,14 @@ Mongo-express is available at `http://localhost:8081` for DB inspection.
 
 ### Build for production
 ```bash
-pnpm run build    # Compiles TypeScript to dist/
-pnpm start        # Runs dist/bot.js
+go build -o jsts-salebot .           # or: docker build --target production -t jsts-salebot .
 ```
 
 ### Linting & Testing
 ```bash
-pnpm run lint         # ESLint check
-pnpm run test         # Validates src/locales key completeness
+gofmt -l .        # must print nothing
+go vet ./...
+go test ./...     # locale integrity, /config parsing, broadcast error mapping, unit tests
 ```
 
 ---
@@ -165,40 +176,40 @@ pnpm run test         # Validates src/locales key completeness
 ## Agent Guidelines
 
 ### Do
-- **Follow the existing service layer pattern**: business logic belongs in `src/services/`, database access in `src/repositories/`, type definitions in `src/types/index.ts`.
-- **Enforce strict typing**: Avoid `any`. Use specific types from `node-telegram-bot-api` (e.g., `User`, `Message`, `CallbackQuery`) or define custom interfaces in `src/types/index.ts`.
-- **Use `unknown` or Union Types**: If a type is truly dynamic (like translation parameters), prefer `Record<string, string | number | boolean>` or `unknown` over `any`.
-- **Always update `src/locales/<lang>/common.json`** for all language keys when adding new user-facing messages. Validate with `pnpm run check-locals`.
-- **Use the `BotConfig` type** when reading runtime configuration; never hardcode group IDs or language strings.
-- **Check `session.isIdle`** before starting any new async input flow, and always reset it (including in `catch` blocks) to prevent users getting stuck.
-- **Keep Mongoose queries in repositories**, not in services or controllers.
-- **Use `async/await`** with `try/catch` for all async operations, logging errors with a `[ERROR - <context>]` prefix to `console.error`.
-- **Avoid Conflicting Update Operators**: In MongoDB upsert operations (`findOneAndUpdate`), never include the same field path in both `$set` and `$setOnInsert`. This triggers a `ConflictingUpdateOperators` (Code 40) error.
-- **Defensive Metadata Updates**: When updating user profiles, only `$set` fields that have valid, non-empty values from Telegram. Avoid overwriting existing database records with placeholder strings (like "Unknown") used during internal service discovery.
-- **Preserve Docker targets** (`development`/`production`) when modifying the `dockerfile`.
-- **Update Documentation**: When implementing new features, always update `README.md` (Features list) and `CHANGELOG.md`.
-- **Add Tests**: When implementing new logic or features, add a relevant test case in `src/tests/testCases.ts` to verify the behavior.
+- **Follow the layering**: business logic in `internal/services/`, database access in `internal/repository/`, document shapes in `internal/models/`, update routing in `internal/controller/`.
+- **Keep MongoDB in the repositories.** Services and the controller never import the driver; they pass `repository.Fields` maps or typed arguments.
+- **Preserve the on-disk contract**: bson field names in `internal/models`, collection names (`posts`, `users`), `config.json` keys and locale keys must stay compatible with the TypeScript version and existing databases.
+- **Always update `locales/<lang>/common.json`** for all languages when adding user-facing messages. Validate with `go test ./internal/locale/`.
+- **Read configuration through `config.Store.Get()`** at the start of a handler; never hardcode group IDs or language strings. New keys go in the `Config` struct, `KnownKeys`, `set()` and `Schema`.
+- **Use `tgutil`** for sending (`Send`, `SendLog`, `SendRich`), answering callbacks (`Answer`) and clearing buttons (`ClearButtons`) so thread ids and error logging stay consistent.
+- **Pass `ctx` everywhere** and make waits cancellable (`Listen.WaitMessage`/`WaitCallback` already are).
+- **Log with a `[LEVEL - context]` prefix** (`[ERROR - ModerationService.handleCallback]`), matching the existing style.
+- **Avoid conflicting update operators**: in upserts never put the same field in both `$set` and `$setOnInsert` (MongoDB error 40). See `UserRepository.UpsertUserWithInsert`.
+- **Only `$set` non-empty profile fields** when refreshing a user, so Telegram omitting a field never wipes stored data.
+- **Preserve Docker targets** (`development`/`production`) when modifying the `Dockerfile`.
+- **Update documentation**: when implementing new features, update `docs/README.md` (Features list) and `docs/CHANGELOG.md`.
+- **Add tests**: unit tests next to the code (`*_test.go`), and an in-bot scenario in `internal/testcases/` for anything that needs a real Telegram round-trip.
+- **Run `gofmt`** before committing; CI rejects unformatted files.
 
 ### Don't
-- **Don't use `any`**: This project enforces the `@typescript-eslint/no-explicit-any` rule. Do not introduce new `any` declarations.
-- **Don't add new config keys to `config.json`** without updating the `BotConfig` interface in `src/types/index.ts` and the `/config` handler in `adminService.ts`.
-- **Don't hardcode strings in service files** — all text must come from `locals[config.lang]`.
-- **Don't import directly from `src/tests/testCases.ts`** outside of `botController.ts` — test cases are intentionally isolated.
 - **Don't bypass the moderation flow**: posts must pass through `moderationGroupId` before appearing in `approvedGroupId`.
-- **Don't use `var`**; prefer `const`/`let`. Follow the ESLint rules in `eslint.config.mjs`.
-- **Don't mutate `config.json` directly at runtime from code** — use `adminService` to handle `/config` updates.
+- **Don't mutate `config.json` directly** from code; go through `config.Store.Update` (used by `AdminService.HandleConfig`).
+- **Don't hardcode user-facing strings** in services; all text comes from `Deps.T(locale, key)`.
+- **Don't import `internal/testcases`** outside of `internal/controller`; test cases are intentionally isolated.
+- **Don't block the update goroutine indefinitely** without a context; every wait must observe `ctx.Done()`.
+- **Don't use `panic` for expected failures**; return errors and log them at the boundary.
 
 ### Adding a New Command
-1. Add the handler method to an appropriate service (or create a new one in `src/services/`).
-2. Register the route in `BotController.registerRoutes()` in `src/controllers/botController.ts`.
-3. Add help strings to `src/locales/<lang>/common.json` for all languages and reference them in `showHelp()`.
-4. Update the `/help` display in `botController.ts` if the command is user-facing.
+1. Add the handler to an appropriate service (or create one in `internal/services/`).
+2. Route it in `Controller.route()` (`internal/controller/controller.go`); gate on `isPrivate` and the required `models.AuthLevel` as the neighbours do.
+3. Add help strings to `locales/<lang>/common.json` for all languages and reference them in `showHelp()`.
+4. Document it in `docs/README.md` and this file.
 
 ### Adding a New Locale
-1. Create a new directory `src/locales/<lang>/` (e.g., `src/locales/ru/`).
-2. Add a `common.json` file in the new directory, filling in all keys from `LocaleStrings`.
-3. Run `pnpm run check-locals` — it will error on any missing keys.
-4. Set `"lang": "<lang>"` in `config.json` to activate it as default (users can override with `/lang`).
+1. Create `locales/<lang>/` with `common.json` (all keys) and `faq.json`.
+2. Run `go test ./internal/locale/` — it errors on any missing key.
+3. Rebuild (locales are embedded) or run with `LOCALES_DIR=./locales`.
+4. Set `"lang": "<lang>"` in `config.json` to make it the default (users can override with `/lang`).
 
 ---
 
@@ -206,16 +217,17 @@ pnpm run test         # Validates src/locales key completeness
 
 | File | Purpose |
 |------|---------|
-| `src/bot.ts` | App entry point |
-| `src/controllers/botController.ts` | All Telegram event routing |
-| `src/services/inputService.ts` | Step-by-step user input collection |
-| `src/services/postService.ts` | Post formatting & Telegram message management |
-| `src/services/moderationService.ts` | Approve/reject logic |
-| `src/services/myPostsService.ts` | User post management (bump, sold) |
-| `src/services/adminService.ts` | Runtime config command |
-| `src/services/paymentService.ts` | Handles Telegram Stars donations |
-| `src/models/Post.ts` | Post Mongoose schema |
-| `src/models/User.ts` | User Mongoose schema |
-| `src/types/index.ts` | All shared TypeScript interfaces |
-| `src/locales/` | Directory containing localized UI strings by language |
+| `main.go` | App entry point |
+| `internal/controller/controller.go` | All Telegram update routing & sessions |
+| `internal/listen/listen.go` | Waiting for a user's next message/button |
+| `internal/services/input.go` | Step-by-step user input collection |
+| `internal/services/post.go` | Post formatting & publishing |
+| `internal/services/moderation.go` | Approve/reject logic |
+| `internal/services/myposts.go` | User post management (bump, sold) |
+| `internal/services/admin.go` | Runtime config, broadcast, roles |
+| `internal/services/payment.go` | Telegram Stars donations |
+| `internal/repository/post.go`, `user.go` | MongoDB access |
+| `internal/models/models.go` | Document shapes |
+| `internal/config/config.go`, `schema.go` | Runtime configuration |
+| `locales/` | Localized UI strings and FAQ by language |
 | `config.json` | Runtime bot configuration |

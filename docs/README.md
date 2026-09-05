@@ -4,7 +4,7 @@
   
 (pronounced as "Just Sale Bot") is a Telegram sales bot that lets users create sale listings through a guided conversational flow. Posts go through admin moderation before being published to a public sales group.
 
-This is Built with **TypeScript**, **node-telegram-bot-api**, and **MongoDB** and is a JS version of [GoSaleBot](https://github.com/SM-26/GoSaleBot/)
+This is built with **Go**, **[go-telegram/bot](https://github.com/go-telegram/bot)** and **MongoDB**. It is the Go rewrite of the TypeScript [JSTS-SaleBot](https://github.com/SM-26/JSTS-SaleBot), which was itself a JS version of [GoSaleBot](https://github.com/SM-26/GoSaleBot/). Commands, database collections, `config.json` and the locale files are unchanged, so it runs against an existing deployment's data.
 
 ---
 
@@ -24,34 +24,36 @@ This is Built with **TypeScript**, **node-telegram-bot-api**, and **MongoDB** an
 - **Auto-Publish** — Approved posts are forwarded to a public sales group
 - **Broadcasts** — Announce to the channel (`/broadcast`) or DM active/pending/approved users directly (`/broadcastUsers`)
 - **Forum Topics** — Moderation and approved posts target specific group topics
-- **Multi Localization** — User-specific language preferences with automatic detection from Telegram language settings. Supports multiple languages in structured `src/locales/<lang>/common.json` files.
+- **Multi Localization** — User-specific language preferences with automatic detection from Telegram language settings. Supports multiple languages in structured `locales/<lang>/common.json` files.
 - **User Mentions** — Deep-links (`tg://user`) for users without a username
 - **Role-Based Access Control (RBAC)** — Granular authorization with User, Moderator, and Admin roles, replacing simple `isAdmin` flags.
+- **Single static binary** — Locales are embedded; deploy one file plus `config.json`.
 
 ### 🌐 How Multi Localization Works
 
 1. Locale definition
-   - Each language has its own `src/locales/{lang}/common.json` file (currently `en`, `he`, `ru`).
+   - Each language has its own `locales/{lang}/common.json` file (currently `en`, `he`, `ru`).
    - Translation keys are shared across locales (same keys, different values).
+   - The files are embedded into the binary at build time. Set `LOCALES_DIR=/path/to/locales` to read them from disk instead, e.g. to add a language without rebuilding.
 
 2. Locale resolution
-   - When a user interacts with the bot, `UserService.ensureUser()` writes or updates the user profile.
-   - `localeService.resolveUserLocale(user)` prefers:
+   - When a user interacts with the bot, `UserService.EnsureUser()` writes or updates the user profile.
+   - `locale.Service.ResolveUserLocale(user)` prefers:
      - `user.preferredLocale` (from `/lang` selection)
      - `user.languageCode` (Telegram user language hint)
      - bot config default (`config.lang`)
 
 3. Message rendering
-   - `localeService.t(locale, key)` loads `common.json` for `locale`, caches it, and returns translation.
-   - Missing keys are fallback to the key string with a warning log.
+   - `locale.Service.T(locale, key, params...)` loads `common.json` for `locale`, caches it, and returns the translation with `{placeholders}` substituted.
+   - Missing keys fall back to the key string with a warning log.
 
 4. `/lang` command
-   - Sends an inline keyboard with available locales from `localeService.availableLocales`.
-   - Updates `user.preferredLocale` with `userRepository.updateUser(...)`.
-   - Future replies use chosen locale.
+   - Sends an inline keyboard with the locales discovered in `locales/`.
+   - Updates `user.preferredLocale` in MongoDB.
+   - Future replies use the chosen locale.
 
 5. Configuration tests
-   - `src/tests/checkLocals.ts` validates matching keys across `src/locales/*/common.json` and reports missing entries.
+   - `internal/locale/locale_test.go` validates matching keys across `locales/*/common.json` and reports missing entries. It runs as part of `go test ./...`.
 
 ---
 
@@ -86,6 +88,7 @@ This is Built with **TypeScript**, **node-telegram-bot-api**, and **MongoDB** an
 | `/broadcast` | Send a message to the approved channel, either by replying to an existing message or by typing a new message. |
 | `/broadcastUsers` | Send a direct message (PM) to every active user and every author of a pending or approved post (de-duplicated, excluding you). Text only; reports per-recipient delivery failures. |
 
+Commands are case-insensitive (`/newpost`, `/NewPost` and `/NEWPOST` all work) and are matched as whole words at the start of the message.
 
 ---
 
@@ -95,7 +98,7 @@ The bot supports a **localized, hierarchical FAQ system** that allows users to v
 
 ### Overview
 
-- **Location**: `src/locales/<lang>/faq.json` (e.g., `en/faq.json`, `he/faq.json`)
+- **Location**: `locales/<lang>/faq.json` (e.g., `en/faq.json`, `he/faq.json`)
 - **Access**: Users run `/faq` to view all available questions and answers
 - **Localization**: Each language has its own FAQ file with identical structure but translated content
 - **Hierarchy**: Questions and answers are organized using dot notation (e.g., `1`, `1.1`, `2`, `2.1.1`) to create nested topics
@@ -130,11 +133,13 @@ Each FAQ file follows this JSON schema:
     - `1.1.1`, `2.1.2` = Deeper nesting (unlimited levels)
   - **Values**: Plain text strings (no Markdown; HTML tags like `<b>`, `<i>` are supported if you manually format in code)
 
+Top-level keys are shown in ascending numeric order; nested keys keep the order in which they appear in the file.
+
 ### Adding or Editing FAQ Content
 
 #### 1. **Edit an existing locale's FAQ**
 
-Open `/src/locales/<lang>/faq.json` and modify the `nodes` object:
+Open `locales/<lang>/faq.json` and modify the `nodes` object:
 
 ```json
 {
@@ -150,13 +155,13 @@ Open `/src/locales/<lang>/faq.json` and modify the `nodes` object:
 
 #### 2. **Create a new language's FAQ**
 
-1. Create a new directory: `src/locales/<lang>/` (e.g., `src/locales/fr/`)
+1. Create a new directory: `locales/<lang>/` (e.g., `locales/fr/`)
 2. Copy the structure from an existing FAQ file and translate all values:
 
 ```bash
-mkdir -p src/locales/fr
-cp src/locales/en/faq.json src/locales/fr/faq.json
-# Then edit src/locales/fr/faq.json with French translations
+mkdir -p locales/fr
+cp locales/en/faq.json locales/fr/faq.json
+# Then edit locales/fr/faq.json with French translations
 ```
 
 3. Update the `meta.locale` field to match the language code:
@@ -168,32 +173,34 @@ cp src/locales/en/faq.json src/locales/fr/faq.json
 }
 ```
 
-4. Run the locale validation test to ensure the file is syntactically correct:
+4. Run the locale validation tests to ensure the file is syntactically correct:
 
 ```bash
-pnpm run test
+go test ./...
 ```
+
+5. Rebuild the binary (locales are embedded), or run with `LOCALES_DIR=./locales` to pick the new directory up from disk.
 
 ### Best Practices
 
 ✅ **Do:**
 - Keep FAQ entries concise and user-friendly
 - Use consistent numbering (avoid gaps: use `1`, `1.1`, `1.2`, `2`; not `1`, `1.5`, `3`)
-- Test the FAQ file with: `pnpm run test` (validates JSON syntax and node structure)
+- Test the FAQ file with: `go test ./...` (validates JSON syntax and node structure)
 - Use the `/faq` command in the bot to preview your FAQ before committing
 - Update **all** language files when modifying structure (to keep them in sync)
 
 ❌ **Don't:**
 - Leave the `meta.locale` field empty or mismatched with the directory name
 - Use special characters or newlines in FAQ text—keep values as single-line strings
-- Skip validation after editing—`pnpm run test` ensures file integrity
+- Skip validation after editing—`go test ./...` ensures file integrity
 - Create duplicate or out-of-order node keys (structure is for logical presentation, not sorting)
 
 ### Technical Implementation
 
-- **Loading**: `localeService.getFaqs(locale)` reads `faq.json` and returns the `nodes` object
+- **Loading**: `locale.Service.GetFaqs(locale)` reads `faq.json` and returns the `nodes` map plus the ordered key list
 - **Error Handling**: If a FAQ file is missing or invalid, users see: *"FAQ information not available for your language."*
-- **Caching**: FAQ files are loaded on-demand; no in-memory cache (lightweight approach)
+- **Caching**: FAQ files are parsed once per locale and cached in memory
 - **Locale Resolution**: FAQ respects user-specific locale preference (see [Multi Localization](#-how-multi-localization-works) section)
 
 ---
@@ -201,42 +208,47 @@ pnpm run test
 ## 📁 Project Structure
 
 ```
-src/
-├── bot.ts                    # Entry point — connects DB, starts polling
-├── config/
-│   └── db.ts                 # MongoDB connection
-├── controllers/
-│   └── botController.ts      # Route registration & flow orchestration
-├── models/
-│   ├── Post.ts               # Post schema (title, price, photos, status…)
-│   └── User.ts               # User schema (userId, name, authLevel, preferredLocale…)
-├── repositories/
-│   ├── postRepository.ts     # Post CRUD
-│   └── userRepository.ts     # User CRUD (upsert)
-├── services/
-│   ├── inputService.ts       # Reusable input collection (text, price, photos, confirm)
-│   ├── postService.ts        # Post Rich Message formatting, publish to groups, bump/sold edits
-│   ├── myPostsService.ts     # User post management (list, bump, mark sold)
-│   ├── moderationService.ts  # Approve/reject logic & rejection reasons
-│   ├── pendingService.ts     # /pending listing & /clearpending bulk expire
-│   ├── adminService.ts       # /config, /broadcast, promote/demote/auth
-│   ├── configSchema.ts       # Per-key type rules validating /config values
-│   ├── broadcastUsersService.ts # /broadcastUsers audience resolution & throttled DM fan-out
-│   ├── paymentService.ts     # Donation invoice creation & payment event handling
-│   ├── userService.ts        # User registration
-│   ├── localeService.ts      # User-specific localization & FAQ loading
-│   └── faqService.ts         # FAQ command handler with locale-specific content
+.
+├── main.go                       # Entry point — env, config, DB, bot, graceful shutdown
+├── env.go                        # Minimal .env loader (no dependency)
+├── internal/
+│   ├── config/
+│   │   ├── config.go             # config.json struct, live Store, persistence
+│   │   └── schema.go             # Per-key type rules validating /config values
+│   ├── controller/
+│   │   ├── controller.go         # Update routing, sessions, startup sold-post sync
+│   │   ├── commands.go           # /start, /newPost wizard, /help, /lang, /donate, admin commands
+│   │   └── callbacks.go          # Inline button routing (approve/reject, sold/bump, lang, donate, test)
+│   ├── db/db.go                  # MongoDB connection with retry
+│   ├── listen/listen.go          # Registry for "wait for the user's next message/button" steps
+│   ├── locale/locale.go          # User-specific localization & FAQ loading
+│   ├── models/models.go          # Post & User document shapes (bson tags match the Mongoose schemas)
+│   ├── repository/
+│   │   ├── post.go               # Post CRUD + status query helpers
+│   │   └── user.go               # User CRUD (upsert, isAdmin → authLevel migration)
+│   ├── rich/rich.go              # Rich Message block/text constructors
+│   ├── services/
+│   │   ├── input.go              # Reusable input collection (text, price, media, confirm)
+│   │   ├── post.go               # Post Rich Message formatting, publish to groups, sold edits
+│   │   ├── myposts.go            # User post management (list, bump, mark sold)
+│   │   ├── moderation.go         # Approve/reject logic & rejection reasons
+│   │   ├── pending.go            # /pending listing & /clearpending bulk expire
+│   │   ├── admin.go              # /config, /broadcast, promote/demote/auth
+│   │   ├── broadcastusers.go     # /broadcastUsers audience resolution & throttled DM fan-out
+│   │   ├── payment.go            # Donation invoice creation & payment event handling
+│   │   ├── user.go               # User registration & role checks
+│   │   └── faq.go                # FAQ command handler with locale-specific content
+│   ├── testcases/testcases.go    # Manual test scenarios (in-bot /test)
+│   └── tgutil/                   # Small helpers over the Telegram API
 ├── locales/
-│   ├── en/                   # English: common.json (UI strings) + faq.json
-│   ├── he/                   # Hebrew
-│   └── ru/                   # Russian
-├── tests/
-│   ├── checkLocals.ts        # Localization integrity script (run by `pnpm test`)
-│   ├── configSchema.check.ts # Asserts for /config value parsing
-│   ├── broadcastUsers.check.ts # Asserts for send-error mapping & failure truncation
-│   └── testCases.ts          # Manual test scenarios (in-bot /test)
-└── types/
-    └── index.ts              # TypeScript interfaces (BotConfig, LocaleStrings…)
+│   ├── embed.go                  # Embeds the locale files into the binary
+│   ├── en/                       # English: common.json (UI strings) + faq.json
+│   ├── he/                       # Hebrew
+│   └── ru/                       # Russian
+├── config.json.example           # Runtime config template (copy to config.json)
+├── .env.example                  # Environment variable template (copy to .env)
+├── Dockerfile                    # Multi-stage build (development + production targets)
+└── docker-compose.yaml           # Bot + MongoDB + mongo-express services
 ```
 
 ---
@@ -245,14 +257,12 @@ src/
 
 ### 🐳 Run with Docker (Recommended)
 
-The `dockerfile` is a multi-stage build with **two deployment targets**:
+The `Dockerfile` is a multi-stage build with **two deployment targets**:
 
 | Target | Use case | How it runs | Image contents |
 | :--- | :--- | :--- | :--- |
-| **`development`** | Local development & testing | `ts-node` directly — no build step. Source is bind-mounted, so edits apply live. Node debugger on `9221`. | Includes devDependencies (ts-node, eslint…) |
-| **`production`** | Real deployment | Pre-compiled `node dist/bot.js`, as the non-root `node` user | Production dependencies only — slim |
-
-Both stages install the exact pnpm version pinned by the `packageManager` field in `package.json`, so Docker, CI and local never drift.
+| **`development`** | Local development & testing | `go run .` — source is bind-mounted, restart the container to pick up edits. | Go toolchain + module cache |
+| **`production`** | Real deployment | A static binary on Alpine, as the non-root `bot` user | ~20 MB, no toolchain |
 
 #### 1. Development — `docker compose`
 
@@ -267,25 +277,24 @@ MONGO_URI=mongodb://mongoserver:27017/SalesBotDB
 Launch:
 
 ```bash
-docker compose up -d          # add --build after changing dependencies or the dockerfile
+docker compose up -d          # add --build after changing dependencies or the Dockerfile
 ```
 
 Monitor & manage:
 - Bot logs: `docker compose logs -f bot`
 - Database UI: Mongo Express at `http://localhost:8081` — username `admin`, password `pass`
-- Debugger: attach to `localhost:9221`
 
 #### 2. Production — build & run
 
 The production target is **not** part of `docker-compose.yaml`. Build it and run it against your real MongoDB:
 
 ```bash
-docker build --target production -t jsts-salebot:1.0.0 .
+docker build --target production -t jsts-salebot:2.0.0 .
 
 docker run -d --name jsts-salebot \
   --env-file .env \
   -v "$PWD/config.json:/app/config.json" \
-  jsts-salebot:1.0.0
+  jsts-salebot:2.0.0
 ```
 
 > **`config.json` is not baked into the image.** It is environment-specific (and gitignored), so it must be mounted at `/app/config.json` — the container exits on startup without it. Mount it **writable**: `/config` changes are persisted back to this file.
@@ -293,17 +302,15 @@ docker run -d --name jsts-salebot \
 ## Dev build  
 ### Prerequisites
 
-- **Node.js** 20.19+ (required by `mongoose`; CI runs Node 24, the Docker images use Node 26)
-- **pnpm** (the repo pins it via `packageManager` — `corepack enable` or install it globally)
+- **Go** 1.26+ (CI and the Docker images use 1.27)
 - **MongoDB** running locally (or a remote URI)
 - A **Telegram Bot Token** from [@BotFather](https://t.me/BotFather)
 
-### 1. Clone & Install
+### 1. Clone
 
 ```bash
 git clone https://github.com/SM-26/JSTS-SaleBot.git
 cd JSTS-SaleBot
-pnpm install
 ```
 
 ### 2. Configure Environment
@@ -319,9 +326,18 @@ BOT_TOKEN=your_telegram_bot_token
 MONGO_URI=mongodb://localhost:27017/SalesBotDB
 ```
 
+Optional variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CONFIG_PATH` | `config.json` | Location of the runtime config file |
+| `LOCALES_DIR` | *(embedded)* | Read `locales/` from this directory instead of the embedded copy |
+
+The database name is taken from the URI path (`/SalesBotDB`); it falls back to `SalesBotDB` when the URI has none.
+
 ### 3. Configure Bot Settings
 
-Edit `config.json`:
+Copy `config.json.example` to `config.json` and edit it:
 
 ```json
 {
@@ -340,11 +356,11 @@ Edit `config.json`:
 }
 ```
 
-Values set via `/config` are validated per key (see `src/services/configSchema.ts`) — enums only accept their allowed values, numbers must be numeric, and nullable fields accept `null`.
+Values set via `/config` are validated per key (see `internal/config/schema.go`) — enums only accept their allowed values, numbers must be whole numbers, and nullable fields accept `null`.
 
 | Field                | Type | Description                                       |
 |----------------------|------|---------------------------------------------------|
-| `lang`               | enum | Default locale key — must be a folder in `src/locales/` (`en`, `he`, `ru`) |
+| `lang`               | enum | Default locale key — must be a folder in `locales/` (`en`, `he`, `ru`) |
 | `moderationGroupId`  | number | Telegram group where posts are reviewed           |
 | `approvedGroupId`    | number | Telegram group where approved posts are published |
 | `moderationTopicId`  | number \| null | Forum topic ID for moderation messages (set to `null` if not using topics) |
@@ -361,12 +377,20 @@ Values set via `/config` are validated per key (see `src/services/configSchema.t
 ### 4. Run
 
 ```bash
-# Development (with ts-node)
-pnpm run dev
+# Development
+go run .
 
 # Production
-pnpm run build
-pnpm start
+go build -o jsts-salebot .
+./jsts-salebot
+```
+
+### 5. Test & lint
+
+```bash
+go test ./...     # locale integrity, /config parsing, broadcast error mapping, unit tests
+go vet ./...
+gofmt -l .        # prints files that need formatting (CI fails if any)
 ```
 
 ---
@@ -388,19 +412,20 @@ Sent to moderation group with ✅ Approve / ❌ Reject buttons
 └─ Rejected → Optional reason prompt → user notified
 ```
 
+Each wizard step waits for the user's next message through the listener registry in `internal/listen`: the handler registers a listener, the controller offers every incoming update to the registered listeners first, and the listener that accepts the update is removed. Starting a second `/newPost` cancels the previous wizard.
+
 ---
 
 ## 🛠️ Tech Stack
 
 | Layer        | Technology                  |
 |--------------|-----------------------------|
-| Runtime      | Node.js + TypeScript        |
-| Package manager | pnpm (pinned via `packageManager`) |
-| Telegram API | [node-telegram-bot-api](https://github.com/yagop/node-telegram-bot-api) v1.x (Bot API 10.2, Rich Messages) |
-| Database     | MongoDB + Mongoose          |
-| Config       | JSON (`config.json`), validated by `src/services/configSchema.ts` |
-| i18n         | Structured JSON (`src/locales/<lang>/common.json` + `src/locales/<lang>/faq.json`)  |
-| Validation   | `pnpm run test` — Validates locale file syntax, key consistency, and FAQ structure |
+| Runtime      | Go (single static binary)   |
+| Telegram API | [go-telegram/bot](https://github.com/go-telegram/bot) v1.25 (Bot API 10.2, Rich Messages) |
+| Database     | MongoDB + official Go driver v2 |
+| Config       | JSON (`config.json`), validated by `internal/config/schema.go` |
+| i18n         | Structured JSON (`locales/<lang>/common.json` + `locales/<lang>/faq.json`), embedded  |
+| Validation   | `go test ./...` — Validates locale file syntax, key consistency, and FAQ structure |
 
 ---
 

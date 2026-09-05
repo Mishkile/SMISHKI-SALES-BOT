@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 
 ## Version History
+2.0.0 - Rewritten in Go. Same commands, same MongoDB collections, same `config.json` and locale files: a drop-in replacement for the TypeScript bot.
+  - **Breaking:** the runtime is a single static Go binary (`go build .`) instead of Node.js/pnpm. `package.json`, `tsconfig.json`, ESLint and the TypeScript sources are gone. Docker images build from `Dockerfile` (multi-stage, `development` and `production` targets) on `golang:1.27-alpine`.
+  - **Breaking:** locale files moved from `src/locales/<lang>/` to `locales/<lang>/` and are embedded into the binary; set `LOCALES_DIR` to read them from disk instead (e.g. to add a language without rebuilding). `CONFIG_PATH` overrides the `config.json` location.
+  - **Breaking:** commands are matched as whole words at the start of the message. `/pending` no longer also fires on `/clearpending`, and `/start` inside a sentence no longer triggers.
+  - Telegram via [go-telegram/bot](https://github.com/go-telegram/bot) v1.25 (Bot API 10.2, Rich Messages); MongoDB via the official Go driver v2.
+  - Wizard input waits are context-based: starting a second `/newPost` cancels the previous wizard instead of running two competing ones, and shutdown cancels all of them.
+  - `/config lang` now applies to the locale fallback immediately; the TypeScript version read a second, stale copy of `config.json` for that.
+  - The sold-marker edit of a published post is sent as a direct `editMessageText` call carrying only `rich_message`, so no empty `text` field rides along.
+  - Tests: `go test ./...` runs the locale integrity checks (port of `checkLocals.ts`), the `/config` parser checks and the broadcast error-mapping checks, plus new unit tests for the listener registry, the rich-message wire format, FAQ key ordering, the config store and the `.env` loader.
+  - CI: `go-ci.yml` (build, gofmt, vet, test); Dependabot tracks Go modules; the pnpm-specific retry workflow was removed.
+  - Fixed `config.json.example`, which contained an invalid `boolean` literal.  
+
 1.0.0 - Out of alpha. Telegram Bot API 10.2, Rich Messages throughout, and a new direct-broadcast command.
   - **Breaking:** `/start` no longer creates a post — it now shows a welcome greeting. Post creation moved to the new `/newPost` command.
   - **Breaking:** `minimumPhotos` is now enforced. The code previously read a `minimumMedia` key that does not exist in `config.json`, so the comparison was always against `undefined` and photo-less posts were silently accepted.

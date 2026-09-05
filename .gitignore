@@ -1,13 +1,13 @@
 .vscode/
-node_modules/
 .env
-dist/
-public/
 config.json
 config.json.backup
 docs/superpowers/
 
-# graphify local/regenerable artifacts
-graphify-out/cache/
-graphify-out/.graphify_python
-graphify-out/.graphify_root
+# Go build artifacts
+bin/
+dist/
+*.exe
+*.test
+*.out
+coverage.*
